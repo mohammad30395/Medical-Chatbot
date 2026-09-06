@@ -568,3 +568,102 @@ Defaults implemented:
 ## Next Expected Phase
 
 - Phase 05, only when explicitly requested.
+
+---
+
+## Phase 05 - PDF Loading
+
+Status: PASS
+Completion timestamp: 2026-09-06 20:30:28 +06
+
+## Scope
+
+- Implemented only the PDF loading layer in `src/helper.py`.
+- Added helper-level unit tests in `tests/test_helper.py`.
+- Did not split PDF text.
+- Did not embed PDF text.
+- Did not send PDF content to OpenRouter.
+- Did not modify Pinecone, vector store, RAG, or application runtime code.
+- Did not create, download, or fabricate any medical PDF.
+- Did not install or change dependencies.
+- Did not print `.env` secrets.
+
+## PDF Loading Behavior
+
+- Function implemented: `load_pdf_documents(data_dir: str | Path) -> list[Document]`
+- Data directory is resolved to an absolute path.
+- PDF discovery is case-insensitive using `.pdf` suffix matching.
+- Missing/no-PDF state raises `FileNotFoundError` with instruction to place a legally obtained PDF in `data/`.
+- PDFs are loaded with current LangChain `PyPDFLoader` import path:
+  - `from langchain_community.document_loaders import PyPDFLoader`
+- Returned objects are LangChain `Document` instances from `langchain_core.documents`.
+- `source` metadata is ensured on each returned document.
+- `page` metadata from the loader is preserved when present.
+- Loader/PDF errors are wrapped as `PDFLoadError` with the source filename while preserving the original exception as `__cause__`.
+
+## Real Data PDF Smoke Check
+
+- Real PDF files found in `data/`: 0
+- Read-only real-PDF smoke check: skipped because no PDF exists in `data/`.
+- No medical content was printed.
+
+## Files Changed In Phase 05
+
+- `src/helper.py`
+- `tests/test_helper.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 05
+
+- `pwd`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `find . -maxdepth 4 -type d -not -path './.git/*' -not -path './.venv/*' | sort`
+- `tail -n 260 BUILD_STATE.md`
+- `sed -n '1,260p' src/config.py`
+- `test -f src/helper.py && sed -n '1,260p' src/helper.py || true`
+- `find data -maxdepth 2 -type f | sort`
+- `git status --short --untracked-files=all`
+- `.venv/bin/python - <<'PY' ... compile src/helper.py and tests/test_helper.py ... PY`
+- `.venv/bin/python -m unittest tests.test_helper -v`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python - <<'PY' ... import src.helper load_pdf_documents and PDFLoadError ... PY`
+- `find data -type f \( -iname '*.pdf' \) | sort`
+- `.venv/bin/python - <<'PY' ... call load_pdf_documents('data') and print FileNotFoundError only ... PY`
+- `find . -path './.venv' -prune -o -type d -name '__pycache__' -print`
+- `find . -path './.venv' -prune -o -type f -name '*.pyc' -print`
+- `git status --short --untracked-files=all`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' '(sk-[A-Za-z0-9_-]{20,}|OPENROUTER_API_KEY\s*=\s*[^[:space:]]+|PINECONE_API_KEY\s*=\s*[^[:space:]]+|OPENAI_API_KEY\s*=\s*[^[:space:]]+|BEGIN (RSA|OPENSSH|PRIVATE) KEY)' .`
+- `rm -r tests/__pycache__ src/__pycache__`
+- `find . -path './.venv' -prune -o -type d -name '__pycache__' -print`
+- `find . -path './.venv' -prune -o -type f -name '*.pyc' -print`
+- `find data -type f \( -iname '*.pdf' \) | sort`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment changes made: none.
+- `src/helper.py` syntax validation: pass.
+- `tests/test_helper.py` syntax validation: pass.
+- Helper unit tests: pass, 3 tests.
+  - no PDF raises a clear `FileNotFoundError`
+  - `.PDF` uppercase suffix is discovered case-insensitively
+  - metadata is preserved
+  - malformed/loader errors include source filename and preserve original exception
+- Full test discovery: pass, 8 tests.
+- Helper import probe: pass.
+- Actual `data/` no-PDF probe: pass, clear error produced.
+- Real PDF smoke check: skipped, no real PDF present.
+- No OpenRouter calls made: pass.
+- No Pinecone/RAG modifications made: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifact check outside `.venv`: pass.
+
+## Unresolved Issues
+
+- No Phase 05 code blockers.
+- `data/` contains no real medical PDF. Before any final integration check or real indexing run, manually place at least one legally obtained medical PDF in `data/`.
+
+## Next Expected Phase
+
+- Phase 06, only when explicitly requested.
