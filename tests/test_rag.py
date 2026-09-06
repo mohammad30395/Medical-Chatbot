@@ -11,12 +11,20 @@ from langchain_core.documents import Document
 
 from src.config import ConfigurationError, Settings, load_settings
 from src.rag import (
+    LLM_MAX_RETRIES,
+    LLM_MAX_TOKENS,
+    LLM_SMOKE_PROMPT,
+    LLM_TEMPERATURE,
+    LLM_TIMEOUT_SECONDS,
+    LLMError,
     PREVIEW_MAX_CHARS,
     RETRIEVER_SEARCH_KWARGS,
+    get_llm,
     get_retriever,
     get_vector_store,
     print_retrieval_diagnostics,
     retrieval_previews,
+    smoke_test_llm,
 )
 
 
@@ -49,13 +57,35 @@ class FakeRetriever:
         ]
 
 
+class FakeChatOpenRouter:
+    instances: list["FakeChatOpenRouter"] = []
+    response_content = "OK"
+    invoke_error: Exception | None = None
+
+    def __init__(self, **kwargs: object) -> None:
+        self.kwargs = kwargs
+        self.invocations: list[str] = []
+        FakeChatOpenRouter.instances.append(self)
+
+    def invoke(self, prompt: str) -> SimpleNamespace:
+        self.invocations.append(prompt)
+        if self.invoke_error is not None:
+            raise self.invoke_error
+        return SimpleNamespace(content=self.response_content)
+
+
 class RagUnitTests(unittest.TestCase):
     def setUp(self) -> None:
         FakeVectorStore.instances = []
+        FakeChatOpenRouter.instances = []
+        FakeChatOpenRouter.response_content = "OK"
+        FakeChatOpenRouter.invoke_error = None
         self.settings = Settings(
             pinecone_api_key="test-key",
             pinecone_index_name="medical-bot",
             pinecone_namespace="medical-chatbot-v1",
+            openrouter_api_key="dummy-openrouter-key",
+            openrouter_model="openrouter/free",
         )
 
     @patch("src.rag.PineconeVectorStore", FakeVectorStore)
@@ -108,6 +138,71 @@ class RagUnitTests(unittest.TestCase):
 
         self.assertEqual(output.getvalue(), "1\tfixture.pdf\t0\tshort preview\n")
         self.assertNotIn("test-key", output.getvalue())
+
+    @patch("src.rag.ChatOpenRouter", FakeChatOpenRouter)
+    def test_get_llm_uses_openrouter_settings(self) -> None:
+        llm = get_llm(settings=self.settings)
+
+        self.assertIs(llm, FakeChatOpenRouter.instances[0])
+        self.assertEqual(llm.kwargs["api_key"], "dummy-openrouter-key")
+        self.assertEqual(llm.kwargs["model"], "openrouter/free")
+        self.assertEqual(llm.kwargs["temperature"], LLM_TEMPERATURE)
+        self.assertEqual(llm.kwargs["timeout"], LLM_TIMEOUT_SECONDS * 1000)
+        self.assertEqual(llm.kwargs["max_retries"], LLM_MAX_RETRIES)
+        self.assertEqual(llm.kwargs["max_tokens"], LLM_MAX_TOKENS)
+        self.assertNotIn("OPENAI" + "_API_KEY", llm.kwargs)
+
+    def test_get_llm_missing_openrouter_key_raises_clear_error(self) -> None:
+        settings = Settings(openrouter_api_key="")
+
+        with self.assertRaisesRegex(ConfigurationError, "OPENROUTER_API_KEY"):
+            get_llm(settings=settings)
+
+    @patch("src.rag.ChatOpenRouter", FakeChatOpenRouter)
+    def test_smoke_test_llm_invokes_exactly_once(self) -> None:
+        response = smoke_test_llm(settings=self.settings)
+
+        self.assertEqual(response, "OK")
+        self.assertEqual(FakeChatOpenRouter.instances[0].invocations, [LLM_SMOKE_PROMPT])
+
+    @patch("src.rag.ChatOpenRouter", FakeChatOpenRouter)
+    def test_smoke_test_llm_sanitizes_secret_bearing_errors(self) -> None:
+        FakeChatOpenRouter.invoke_error = RuntimeError(
+            "401 unauthorized Authorization: Bearer dummy-openrouter-key"
+        )
+
+        with self.assertRaises(LLMError) as context:
+            smoke_test_llm(settings=self.settings)
+
+        message = str(context.exception)
+        self.assertIn("OpenRouter authentication failed", message)
+        self.assertIn("[redacted]", message)
+        self.assertNotIn("dummy-openrouter-key", message)
+
+    @patch("src.rag.ChatOpenRouter", FakeChatOpenRouter)
+    def test_smoke_test_llm_classifies_user_facing_errors(self) -> None:
+        cases = (
+            ("404 model unavailable", "OpenRouter model unavailable"),
+            ("429 quota exceeded", "OpenRouter rate limit or quota exceeded"),
+            ("ReadTimeout network failure", "OpenRouter timeout or network failure"),
+        )
+
+        for raw_error, expected in cases:
+            with self.subTest(raw_error=raw_error):
+                FakeChatOpenRouter.instances = []
+                FakeChatOpenRouter.invoke_error = RuntimeError(raw_error)
+
+                with self.assertRaises(LLMError) as context:
+                    smoke_test_llm(settings=self.settings)
+
+                self.assertIn(expected, str(context.exception))
+
+    @patch("src.rag.ChatOpenRouter", FakeChatOpenRouter)
+    def test_smoke_test_llm_empty_response_raises_clear_error(self) -> None:
+        FakeChatOpenRouter.response_content = ""
+
+        with self.assertRaisesRegex(LLMError, "empty response"):
+            smoke_test_llm(settings=self.settings)
 
 
 class SmokeScriptTests(unittest.TestCase):

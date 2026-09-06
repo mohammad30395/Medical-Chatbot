@@ -1198,3 +1198,265 @@ Completion timestamp: 2026-09-06 23:55:16 +06
 ## Next Expected Phase
 
 - Phase 10, only when explicitly requested.
+
+---
+
+## Phase 10 - OpenRouter LLM
+
+Status: PASS
+Completion timestamp: 2026-09-07 00:07:12 +06
+Resolution timestamp: 2026-09-07 01:17:25 +06
+
+## Scope
+
+- Implemented only the OpenRouter LLM client in `src/rag.py`.
+- Added `get_llm()`.
+- Added `smoke_test_llm()` for a single tiny non-medical OpenRouter invocation.
+- Added LLM client and error-sanitization tests in `tests/test_rag.py`.
+- Did not initialize `ChatOpenAI`.
+- Did not use `OPENAI_API_KEY`.
+- Did not hard-code an individual free model in source code.
+- Kept the model configurable through `OPENROUTER_MODEL`.
+- Did not connect the LLM to retrieved medical context.
+- Did not build the LLM chain.
+- Did not install or change dependencies.
+
+## LLM Client Contract
+
+- Provider class: `langchain_openrouter.ChatOpenRouter`.
+- API key source: `OPENROUTER_API_KEY`.
+- Model source: `OPENROUTER_MODEL`.
+- Default model remains configured in `src/config.py` as `openrouter/free`.
+- Temperature: 0.
+- Timeout: 15 seconds, passed to the installed `langchain_openrouter` package as `15000` milliseconds.
+- Automatic retries: 0, adjusted after the first smoke attempt showed the provider client entering retry/backoff after a timeout.
+- Max output tokens: 64, added because the installed OpenRouter SDK default requested up to 65536 tokens for this model/account.
+
+## Error Handling
+
+- Added `LLMError` for OpenRouter setup/invocation failures.
+- User-facing errors are classified as:
+  - authentication failure
+  - model unavailable
+  - rate limit / quota exceeded
+  - timeout / network failure
+  - generic OpenRouter request failure
+- Error messages redact configured API key values, bearer tokens, API-key fields, and common key-shaped strings.
+
+## Real OpenRouter Smoke Result
+
+- Command run once: `.venv/bin/python - <<'PY' ... smoke_test_llm() ... PY`
+- Prompt: `Reply with exactly: OK`.
+- Result: BLOCKED.
+- Observed failure: request timed out in the OpenRouter client and entered internal retry/backoff before completion.
+- Action taken: interrupted the hung smoke process and changed client configuration to `max_retries=0` and `timeout=15`.
+- No second real OpenRouter invocation was made, to avoid creating a retry loop or wasting free quota.
+
+## OpenRouter Smoke Retry
+
+- Retry timestamp: 2026-09-07 00:17:33 +06.
+- Command run once after user requested retry: `.venv/bin/python - <<'PY' ... smoke_test_llm() with local process alarm ... PY`
+- Prompt: `Reply with exactly: OK`.
+- Result: BLOCKED.
+- Observed failure: `OpenRouter timeout or network failure: local one-shot smoke timeout`.
+- No key values were printed.
+- No additional retry loop was started.
+
+## OpenRouter Smoke Retry 2
+
+- Retry timestamp: 2026-09-07 00:26:31 +06.
+- Masked configuration check: `OPENROUTER_API_KEY` present.
+- Configured model at retry time: `openai/gpt-oss-20b:free`.
+- Command run once after user requested retry: `.venv/bin/python - <<'PY' ... child smoke_test_llm() with parent process timeout ... PY`
+- Prompt: `Reply with exactly: OK`.
+- Result: BLOCKED.
+- Observed failure: `OpenRouter smoke failed: local parent timeout after one invocation`.
+- No key values were printed.
+- No additional retry loop was started.
+
+## OpenRouter Smoke Retry 3
+
+- Retry timestamp: 2026-09-07 00:29:49 +06.
+- Masked configuration check: `OPENROUTER_API_KEY` present.
+- Configured model at retry time: `openai/gpt-oss-120b:free`.
+- Command run once after user requested retry: `.venv/bin/python - <<'PY' ... child smoke_test_llm() with parent process timeout ... PY`
+- Prompt: `Reply with exactly: OK`.
+- Result: BLOCKED.
+- Observed failure: `OpenRouter smoke failed: local parent timeout after one invocation`.
+- No key values were printed.
+- No additional retry loop was started.
+
+## OpenRouter Smoke Retry 4
+
+- Retry timestamp: 2026-09-07 00:34:04 +06.
+- Masked configuration check: `OPENROUTER_API_KEY` present.
+- Configured model at retry time: `google/gemini-2.0-flash-001`.
+- Command run once after user requested retry: `.venv/bin/python - <<'PY' ... child smoke_test_llm() with parent process timeout ... PY`
+- Prompt: `Reply with exactly: OK`.
+- Result: BLOCKED.
+- Observed failure: `OpenRouter smoke failed: local parent timeout after one invocation`.
+- No key values were printed.
+- No additional retry loop was started.
+
+## OpenRouter Smoke Retry 5
+
+- Retry timestamp: 2026-09-07 00:38:07 +06.
+- Masked configuration check: `OPENROUTER_API_KEY` present.
+- Configured model at retry time: `anthropic/claude-3.5-sonnet`.
+- Command run once after user requested retry: `.venv/bin/python - <<'PY' ... child smoke_test_llm() with parent process timeout ... PY`
+- Prompt: `Reply with exactly: OK`.
+- Result: BLOCKED.
+- Observed failure: `OpenRouter smoke failed: local parent timeout after one invocation`.
+- No key values were printed.
+- No additional retry loop was started.
+
+## OpenRouter Smoke Retry 6
+
+- Retry timestamp: 2026-09-07 01:10:08 +06.
+- Masked configuration check: `OPENROUTER_API_KEY` present.
+- Configured model at retry time: `openai/gpt-chat-latest`.
+- Command run once after user requested retry: `.venv/bin/python - <<'PY' ... child smoke_test_llm() with parent process timeout ... PY`
+- Prompt: `Reply with exactly: OK`.
+- Result: BLOCKED.
+- Observed failure: `OpenRouter smoke failed: local parent timeout after one invocation`.
+- No key values were printed.
+- No additional retry loop was started.
+
+## Root Cause and Resolution
+
+- New evidence from user: direct curl from the same Mac/project terminal succeeded with `OPENROUTER_MODEL=openai/gpt-chat-latest` and returned `OK`.
+- Python `.env` loading was verified: `OPENROUTER_API_KEY` was present and `OPENROUTER_MODEL` was `openai/gpt-chat-latest`.
+- Proxy environment was inspected: no `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, or `NO_PROXY` settings were present.
+- Installed `langchain_openrouter` source was inspected.
+- Root cause 1: `ChatOpenRouter.timeout` maps to the OpenRouter SDK `timeout_ms`, so the previous `timeout=15` was interpreted as 15 milliseconds, not 15 seconds.
+- Root cause 2: after testing with an explicit 15000 ms timeout, the request reached OpenRouter but failed because the SDK/provider path requested up to 65536 tokens by default; OpenRouter reported the account/model could only afford 119 tokens for that request.
+- Code change: `get_llm()` now passes `timeout=LLM_TIMEOUT_SECONDS * 1000` and `max_tokens=64`.
+- Real application-level smoke after the fix used `openai/gpt-chat-latest`, completed successfully, returned a non-empty response, and the response preview was `OK`.
+- No API key values were printed.
+- No retry loop was introduced.
+
+## Files Changed In Phase 10
+
+- `src/rag.py`
+- `tests/test_rag.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 10
+
+- `pwd && rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 260 BUILD_STATE.md`
+- `sed -n '1,320p' src/rag.py`
+- `sed -n '1,260p' src/config.py`
+- `.venv/bin/python - <<'PY' ... inspect ChatOpenRouter signatures ... PY`
+- `.venv/bin/python - <<'PY' ... locate langchain_openrouter package ... PY`
+- `.venv/bin/python -m pip list --format=columns | rg '^(langchain-openrouter|langchain-core|openai|httpx|pydantic)\s+'`
+- `sed -n '1,160p' .env.example && sed -n '1,260p' tests/test_rag.py`
+- `.venv/bin/python -m py_compile src/rag.py tests/test_rag.py`
+- `.venv/bin/python -m unittest tests.test_rag -v`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' 'ChatOpenAI|OPENAI_API_KEY' .`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' 'sk-or-v1-|sk-[A-Za-z0-9_-]{20,}' src tests scripts .env.example README.md setup.py store_index.py app.py template.py`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' 'ChatOpenAI|OPENAI_API_KEY' src tests scripts app.py store_index.py template.py setup.py README.md .env.example`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `.venv/bin/python - <<'PY' ... smoke_test_llm() one-shot OpenRouter smoke ... PY`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python - <<'PY' ... instantiate get_llm without invoking ... PY`
+- `.venv/bin/python -m pip check`
+- `git diff -- src/rag.py tests/test_rag.py`
+- `git diff --check`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `git status --short --untracked-files=all`
+- `.venv/bin/python - <<'PY' ... retry smoke_test_llm() once with local process alarm ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `.venv/bin/python - <<'PY' ... masked OpenRouter key/model configuration check ... PY`
+- `.venv/bin/python - <<'PY' ... retry smoke_test_llm() once in child process with parent timeout ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `sed -n '1,260p' /Users/macbook/.codex/attachments/46b09151-85c0-4dc8-a039-933f1eb00fde/pasted-text.txt`
+- `sed -n '261,520p' /Users/macbook/.codex/attachments/46b09151-85c0-4dc8-a039-933f1eb00fde/pasted-text.txt`
+- `.venv/bin/python - <<'PY' ... inspect ChatOpenRouter implementation, validators, timeout mapping, and SDK constructor ... PY`
+- `.venv/bin/python - <<'PY' ... inspect proxy environment variables without values ... PY`
+- `.venv/bin/python - <<'PY' ... verify Python load_settings sees masked OpenRouter configuration ... PY`
+- `.venv/bin/python - <<'PY' ... minimal ChatOpenRouter diagnostic with timeout=15000 and max_retries=0 ... PY`
+- `.venv/bin/python -m py_compile src/rag.py tests/test_rag.py`
+- `.venv/bin/python -m unittest tests.test_rag -v`
+- `.venv/bin/python -m unittest discover -v`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python -m pip check`
+- `.venv/bin/python - <<'PY' ... real smoke_test_llm() after fix ... PY`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' 'ChatOpenAI|OPENAI_API_KEY' src tests scripts app.py store_index.py template.py setup.py README.md .env.example`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `git diff --check`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `.venv/bin/python - <<'PY' ... masked OpenRouter key/model configuration check ... PY`
+- `.venv/bin/python - <<'PY' ... retry smoke_test_llm() once in child process with parent timeout ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `.venv/bin/python - <<'PY' ... masked OpenRouter key/model configuration check ... PY`
+- `.venv/bin/python - <<'PY' ... retry smoke_test_llm() once in child process with parent timeout ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `.venv/bin/python - <<'PY' ... masked OpenRouter key/model configuration check ... PY`
+- `.venv/bin/python - <<'PY' ... retry smoke_test_llm() once in child process with parent timeout ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `.venv/bin/python - <<'PY' ... masked OpenRouter key/model configuration check ... PY`
+- `.venv/bin/python - <<'PY' ... retry smoke_test_llm() once in child process with parent timeout ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment inspected before implementation: pass.
+- Dependency changes made: none.
+- `ChatOpenRouter` installed API inspected: pass.
+- `src/rag.py` syntax validation: pass.
+- `tests/test_rag.py` syntax validation: pass.
+- Retriever and LLM focused tests: pass, 12 tests.
+- Full test discovery: pass, 40 tests.
+- `get_llm()` instantiation with configured `.env`: pass.
+- LLM smoke helper invokes exactly once in unit tests: pass.
+- User-facing error sanitization tests: pass.
+- `ChatOpenAI` / `OPENAI_API_KEY` scoped source scan: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, outside `.env`, and excluding `BUILD_STATE.md`: pass.
+- `pip check`: pass.
+- Source tree bytecode/cache artifacts removed outside `.venv`: pass.
+- `git diff --check`: pass.
+- Real OpenRouter one-shot smoke test: blocked by timeout.
+- Real OpenRouter one-shot smoke retry: blocked by local timeout/network failure.
+- Real OpenRouter one-shot smoke retry 2: blocked by parent timeout.
+- Real OpenRouter one-shot smoke retry 3: blocked by parent timeout.
+- Real OpenRouter one-shot smoke retry 4: blocked by parent timeout.
+- Real OpenRouter one-shot smoke retry 5: blocked by parent timeout.
+- Real OpenRouter one-shot smoke retry 6: blocked by parent timeout.
+- Minimal `ChatOpenRouter` diagnostic with `timeout=15000` and no `max_tokens`: reached OpenRouter and failed with a quota/token-limit response, confirming the earlier timeout diagnosis exposed a separate default-token issue.
+- `python -m unittest discover -v`: ran 0 tests due this repository's discovery layout.
+- `python -m unittest discover -s tests -v`: pass, 40 tests.
+- Real application-level OpenRouter smoke after fix: pass.
+- Successful smoke model: `openai/gpt-chat-latest`.
+- Successful smoke response was non-empty: yes.
+- Successful smoke response preview: `OK`.
+
+## Unresolved Issues
+
+- No Phase 10 code blockers found.
+
+## Next Expected Phase
+
+- Phase 11, only when explicitly requested.
