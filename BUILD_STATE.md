@@ -667,3 +667,149 @@ Completion timestamp: 2026-09-06 20:30:28 +06
 ## Next Expected Phase
 
 - Phase 06, only when explicitly requested.
+
+---
+
+## Phase 06 - Chunking and Local Embeddings
+
+Status: PASS
+Completion timestamp: 2026-09-06 21:29:20 +06
+
+## Scope
+
+- Implemented document chunking in `src/helper.py`.
+- Implemented local CPU Hugging Face embeddings in `src/helper.py`.
+- Implemented embedding dimension verification in `src/helper.py`.
+- Added/updated helper-level tests in `tests/test_helper.py`.
+- Did not call Pinecone.
+- Did not call OpenRouter.
+- Did not index anything.
+- Did not send PDF content to any model API.
+- Did not install or change dependencies.
+- Did not print `.env` secrets.
+
+## Chunking Behavior
+
+- Function implemented: `split_documents(documents)`.
+- Text splitter: `RecursiveCharacterTextSplitter`.
+- `chunk_size`: 500.
+- `chunk_overlap`: 20.
+- Empty input returns `[]`.
+- Original document metadata is preserved by the splitter.
+- `chunk_index` metadata is added per `(source, page)` group where practical.
+
+## Embedding Behavior
+
+- Function implemented: `get_embeddings()`.
+- Tutorial-compatible alias implemented: `download_hugging_face_embeddings()`.
+- Embedding class: `langchain_huggingface.HuggingFaceEmbeddings`.
+- Model: `sentence-transformers/all-MiniLM-L6-v2`.
+- Local execution target: CPU via `model_kwargs={"device": "cpu"}`.
+- Encode configuration: `encode_kwargs={"normalize_embeddings": True}`.
+- Hugging Face API credentials are not required by code.
+- Function implemented: `verify_embedding_dimension(embeddings)`.
+- Dimension probe uses one short harmless string.
+- Expected dimension: 384.
+- Actual dimension from local smoke probe: 384.
+
+## Real Smoke Test
+
+- Real PDFs found in `data/`: 1.
+- PDF basename observed: `Medical_book.pdf`.
+- License/legal provenance was not verified by code; user is responsible for ensuring the file was legally obtained.
+- Loaded pages/documents: 637.
+- Chunks produced: 5860.
+- First document metadata keys:
+  - `creationdate`
+  - `creator`
+  - `moddate`
+  - `page`
+  - `page_label`
+  - `producer`
+  - `source`
+  - `total_pages`
+- Embedded one short probe only.
+- No page text was printed.
+- No indexing was performed.
+
+## Warnings
+
+- First local embedding probe emitted a Hugging Face warning about unauthenticated requests and optional `HF_TOKEN` for higher rate limits. No Hugging Face token was required.
+- PDF smoke loading emitted many `fontTools` warnings from PDF parsing. The smoke check was rerun with PDF parser warnings suppressed to capture clean count-only output. No dependency was added for `fontTools` in this phase.
+
+## Files Changed In Phase 06
+
+- `src/helper.py`
+- `tests/test_helper.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 06
+
+- `pwd`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `find . -maxdepth 4 -type d -not -path './.git/*' -not -path './.venv/*' | sort`
+- `tail -n 260 BUILD_STATE.md`
+- `sed -n '1,260p' src/helper.py`
+- `sed -n '1,320p' tests/test_helper.py`
+- `find data -maxdepth 2 -type f | sort`
+- `git status --short --untracked-files=all`
+- `.venv/bin/python - <<'PY' ... inspect HuggingFaceEmbeddings signature ... PY`
+- `find data -type f \( -iname '*.pdf' \) -print | wc -l`
+- `find data -type f \( -iname '*.pdf' \) -exec basename {} \; | sort`
+- `.venv/bin/python -m pip list --format=columns | rg '^(sentence-transformers|langchain-huggingface|langchain-text-splitters|langchain-core)\s+'`
+- `.venv/bin/python - <<'PY' ... compile src/helper.py and tests/test_helper.py ... PY`
+- `.venv/bin/python -m unittest tests.test_helper -v`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python - <<'PY' ... import Phase 06 helper functions/constants ... PY`
+- `.venv/bin/python - <<'PY' ... get_embeddings and verify_embedding_dimension smoke probe ... PY`
+- `.venv/bin/python - <<'PY' ... real PDF load/split smoke check ... PY`
+- `.venv/bin/python - <<'PY' ... real PDF load/split smoke check with pypdf warnings suppressed ... PY`
+- `.venv/bin/python -m pip check`
+- `find . -path './.venv' -prune -o -type d -name '__pycache__' -print`
+- `find . -path './.venv' -prune -o -type f -name '*.pyc' -print`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' '(sk-[A-Za-z0-9_-]{20,}|OPENROUTER_API_KEY\s*=\s*[^[:space:]]+|PINECONE_API_KEY\s*=\s*[^[:space:]]+|OPENAI_API_KEY\s*=\s*[^[:space:]]+|BEGIN (RSA|OPENSSH|PRIVATE) KEY)' .`
+- `git status --short --untracked-files=all`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `rm -r tests/__pycache__ src/__pycache__`
+- `tail -n 180 BUILD_STATE.md`
+- `find . -path './.venv' -prune -o -type d -name '__pycache__' -print`
+- `find . -path './.venv' -prune -o -type f -name '*.pyc' -print`
+- `find data -type f \( -iname '*.pdf' \) -exec basename {} \; | sort`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' '(sk-[A-Za-z0-9_-]{20,}|OPENROUTER_API_KEY\s*=\s*[^[:space:]]+|PINECONE_API_KEY\s*=\s*[^[:space:]]+|OPENAI_API_KEY\s*=\s*[^[:space:]]+|BEGIN (RSA|OPENSSH|PRIVATE) KEY)' .`
+- `git status --short --untracked-files=all`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment inspected before implementation: pass.
+- Dependency changes made: none.
+- `src/helper.py` syntax validation: pass.
+- `tests/test_helper.py` syntax validation: pass.
+- Helper unit tests: pass, 8 tests.
+  - chunk size setting is 500
+  - chunk overlap setting is 20
+  - metadata survives splitting
+  - empty input returns `[]`
+  - embedding dimension check returns 384 with a fake embedding object
+  - dimension mismatch raises a clear error
+  - existing PDF loader tests remain passing
+- Full test discovery: pass, 13 tests.
+- Helper import probe: pass.
+- Local embedding dimension smoke check: pass, dimension 384.
+- Real PDF smoke check: pass.
+- `pip check`: pass.
+- No Pinecone calls made: pass.
+- No OpenRouter calls made: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifacts removed outside `.venv`: pass.
+- Final Git status after Phase 06 changes: `BUILD_STATE.md`, `src/helper.py`, and `tests/test_helper.py` modified.
+
+## Unresolved Issues
+
+- No Phase 06 code blockers.
+- Local Hugging Face model artifacts may now exist in the user's Hugging Face cache outside the repository after the first model load.
+- The existing `data/Medical_book.pdf` was used only for read-only smoke checks. Its legal provenance was not verified by code.
+
+## Next Expected Phase
+
+- Phase 07, only when explicitly requested.

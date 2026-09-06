@@ -7,7 +7,15 @@ from unittest.mock import patch
 
 from langchain_core.documents import Document
 
-from src.helper import PDFLoadError, load_pdf_documents
+from src.helper import (
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
+    EXPECTED_EMBEDDING_DIMENSION,
+    PDFLoadError,
+    load_pdf_documents,
+    split_documents,
+    verify_embedding_dimension,
+)
 
 
 class FakePyPDFLoader:
@@ -29,6 +37,14 @@ class FailingPyPDFLoader:
 
     def load(self) -> list[Document]:
         raise ValueError("malformed fixture")
+
+
+class FakeEmbeddings:
+    def __init__(self, dimension: int) -> None:
+        self.dimension = dimension
+
+    def embed_query(self, text: str) -> list[float]:
+        return [0.0] * self.dimension
 
 
 class LoadPDFDocumentsTests(unittest.TestCase):
@@ -63,6 +79,44 @@ class LoadPDFDocumentsTests(unittest.TestCase):
                     load_pdf_documents(temp_dir)
 
         self.assertIsInstance(context.exception.__cause__, ValueError)
+
+
+class SplitDocumentsTests(unittest.TestCase):
+    def test_chunk_settings_match_contract(self) -> None:
+        self.assertEqual(CHUNK_SIZE, 500)
+        self.assertEqual(CHUNK_OVERLAP, 20)
+
+    def test_empty_input_behaves_predictably(self) -> None:
+        self.assertEqual(split_documents([]), [])
+
+    def test_metadata_survives_splitting_and_chunk_index_is_added(self) -> None:
+        source = "fixture.pdf"
+        document = Document(
+            page_content=" ".join(f"token{i}" for i in range(160)),
+            metadata={"source": source, "page": 2, "custom": "preserved"},
+        )
+
+        chunks = split_documents([document])
+
+        self.assertGreater(len(chunks), 1)
+        for index, chunk in enumerate(chunks):
+            self.assertEqual(chunk.metadata["source"], source)
+            self.assertEqual(chunk.metadata["page"], 2)
+            self.assertEqual(chunk.metadata["custom"], "preserved")
+            self.assertEqual(chunk.metadata["chunk_index"], index)
+
+
+class EmbeddingTests(unittest.TestCase):
+    def test_embedding_dimension_check_returns_384(self) -> None:
+        dimension = verify_embedding_dimension(
+            FakeEmbeddings(EXPECTED_EMBEDDING_DIMENSION)
+        )
+
+        self.assertEqual(dimension, 384)
+
+    def test_embedding_dimension_check_raises_clear_error(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Expected embedding dimension 384"):
+            verify_embedding_dimension(FakeEmbeddings(128))
 
 
 if __name__ == "__main__":
