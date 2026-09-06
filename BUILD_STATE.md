@@ -1089,3 +1089,112 @@ Completion timestamp: 2026-09-06 22:27:55 +06
 ## Next Expected Phase
 
 - Phase 09, only when explicitly requested.
+
+---
+
+## Phase 09 - Retriever
+
+Status: PASS
+Completion timestamp: 2026-09-06 23:55:16 +06
+
+## Scope
+
+- Implemented only the retrieval layer in `src/rag.py`.
+- Added a read-only retrieval diagnostic CLI in `scripts/smoke_test.py`.
+- Added retriever unit and integration tests in `tests/test_rag.py`.
+- Reused `get_embeddings()` from `src/helper.py`.
+- Connected to the existing Pinecone index through `PineconeVectorStore`.
+- Used the configured Pinecone namespace.
+- Did not initialize any LLM.
+- Did not call OpenRouter.
+- Did not install or change dependencies.
+- Did not upload, delete, or rebuild Pinecone data.
+
+## Retriever Contract
+
+- `get_vector_store()` returns a `langchain_pinecone.PineconeVectorStore` connected to the configured Pinecone index and namespace.
+- `get_retriever()` returns a vector-store retriever.
+- Tutorial retrieval setting preserved: `search_kwargs={"k": 3}`.
+- Diagnostic previews are capped at 160 characters.
+- Diagnostic output prints only rank, source, page, and short preview rows during a successful run.
+
+## Real Retrieval Smoke Result
+
+- Command run: `.venv/bin/python scripts/smoke_test.py "What is diabetes?"`
+- Documents returned: 3.
+- Output fields: rank, source, page, preview.
+- Preview length limit: 160 characters.
+- No full medical page text printed.
+
+## Files Changed In Phase 09
+
+- `src/rag.py`
+- `scripts/smoke_test.py`
+- `tests/test_rag.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 09
+
+- `pwd && rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 240 BUILD_STATE.md`
+- `sed -n '1,260p' src/config.py`
+- `sed -n '1,300p' src/helper.py`
+- `sed -n '1,320p' src/pinecone_index.py`
+- `sed -n '1,320p' tests/test_pinecone_index.py`
+- `sed -n '1,220p' .gitignore && sed -n '1,220p' setup.py`
+- `git status --short --untracked-files=all`
+- `.venv/bin/python - <<'PY' ... inspect PineconeVectorStore signatures ... PY`
+- `.venv/bin/python -m pip list --format=columns | rg '^(langchain-pinecone|langchain-core|langchain-huggingface|pinecone|sentence-transformers)\s+'`
+- `test -f src/rag.py && sed -n '1,260p' src/rag.py || true && test -d scripts && find scripts -maxdepth 2 -type f | sort || true`
+- `find data -maxdepth 2 -type f | sort`
+- `.venv/bin/python -m py_compile src/rag.py scripts/smoke_test.py tests/test_rag.py`
+- `.venv/bin/python -m unittest tests.test_rag -v`
+- `.venv/bin/python scripts/smoke_test.py --help`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python scripts/smoke_test.py "What is diabetes?"`
+- `.venv/bin/python -m pip check`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `git diff --check`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `tail -n 170 BUILD_STATE.md`
+- `git status --short --untracked-files=all`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `git diff --check`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment inspected before implementation: pass.
+- Dependency changes made: none.
+- `src/rag.py` syntax validation: pass.
+- `scripts/smoke_test.py` syntax validation: pass.
+- `tests/test_rag.py` syntax validation: pass.
+- Retriever unit tests: pass, 5 tests.
+  - vector store uses configured namespace
+  - retriever preserves `search_kwargs={"k": 3}`
+  - diagnostic previews preserve metadata and cap text length
+  - diagnostic printing emits compact rows
+  - smoke script suppresses library output during successful retrieval
+- Retriever integration test: pass, 1 test.
+  - live Pinecone retriever returned 1-3 documents for a normal medical query
+- Full test discovery: pass, 34 tests.
+- Smoke diagnostic command: pass, returned 3 compact rows.
+- `pip check`: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, outside `.env`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifacts removed outside `.venv`: pass.
+- `git diff --check`: pass.
+- No OpenRouter calls made: pass.
+- No LLM initialized: pass.
+
+## Unresolved Issues
+
+- No Phase 09 code blockers.
+- The existing local PDF in `data/` remains ignored by Git, and legal provenance remains the user's responsibility.
+- The test suite may still show a Hugging Face unauthenticated-request warning during the live integration test, but retrieval passes without requiring a Hugging Face token.
+
+## Next Expected Phase
+
+- Phase 10, only when explicitly requested.
