@@ -1586,3 +1586,112 @@ Completion timestamp: 2026-09-07 01:23:50 +06
 ## Next Expected Phase
 
 - Phase 12, only when explicitly requested.
+
+---
+
+## Phase 12 - Flask Backend
+
+Status: PASS
+Completion timestamp: 2026-09-07 01:33:39 +06
+
+## Scope
+
+- Replaced the Phase 02 `app.py` placeholder with the Flask backend.
+- Added `app = Flask(__name__)`.
+- Added GET `/` to render `templates/chat.html`.
+- Added POST `/get` for tutorial-compatible `msg` form data and JSON `message`.
+- Added whitespace normalization and HTTP 400 rejection for empty input.
+- Added lazy call to `src.rag.answer_question()` only inside POST `/get`.
+- Added lightweight GET `/health` without Pinecone or OpenRouter calls.
+- Added Flask test-client tests.
+- Added the minimal `templates/chat.html` needed by the backend route.
+- Did not change frontend appearance beyond the minimal renderable template needed for GET `/`.
+- Did not change dependencies.
+- Did not call OpenRouter in Phase 12 tests.
+- Did not upload, delete, rebuild, or query Pinecone from the Flask route tests.
+
+## Backend Contract
+
+- Successful POST `/get` returns JSON shaped as `{"answer": "..."}`.
+- Missing or empty input maps to HTTP 400.
+- Missing runtime configuration maps to HTTP 503.
+- OpenRouter model unavailable, rate-limit/quota, auth, timeout, and network errors map to HTTP 503 with friendly messages.
+- Pinecone index failures map to HTTP 503.
+- Generic unexpected exceptions map to HTTP 500 with a generic message.
+- Stack traces and raw exception details are not exposed by handled route errors.
+- `/health` returns `status`, `runtime_configuration_present`, and missing variable names only.
+- `/health` never returns secret values.
+- Startup host, port, and debug mode come from `Settings`.
+- Default host remains `127.0.0.1`.
+- Default port remains `8080`.
+
+## Files Changed In Phase 12
+
+- `app.py`
+- `templates/chat.html`
+- `tests/test_app.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 12
+
+- `pwd && rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 180 BUILD_STATE.md`
+- `sed -n '1,280p' app.py`
+- `sed -n '1,320p' src/config.py`
+- `sed -n '1,360p' src/rag.py`
+- `sed -n '1,260p' tests/test_config.py`
+- `sed -n '1,260p' tests/test_rag.py`
+- `find templates -maxdepth 3 -type f -print 2>/dev/null || true`
+- `sed -n '261,560p' tests/test_rag.py`
+- `sed -n '1,260p' src/pinecone_index.py`
+- `sed -n '1,260p' tests/test_pinecone_index.py`
+- `find . -maxdepth 3 -type f \( -name '*app*' -o -path './templates/*' \) -print`
+- `.venv/bin/python -m py_compile app.py tests/test_app.py`
+- `.venv/bin/python -m unittest tests.test_app -v`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python - <<'PY' ... list Flask routes ... PY`
+- `.venv/bin/python -m pip check`
+- `git diff -- app.py templates/chat.html tests/test_app.py`
+- `sed -n '1,240p' tests/test_app.py`
+- `sed -n '1,220p' templates/chat.html`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `git diff --stat`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `git diff --check`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' 'ChatOpenAI|OPENAI_API_KEY' app.py src tests scripts store_index.py template.py setup.py README.md .env.example`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `tail -n 120 BUILD_STATE.md`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment inspected: pass.
+- Dependency changes made: none.
+- `app.py` syntax validation: pass.
+- `tests/test_app.py` syntax validation: pass.
+- Focused Flask backend tests: pass, 9 tests.
+- Full suite with repository test path: pass, 54 tests.
+- GET `/` returns 200: pass.
+- POST `/get` empty returns 400: pass.
+- POST `/get` with mocked `answer_question()` returns 200 JSON: pass.
+- POST `/get` accepts form field `msg`: pass.
+- GET `/health` returns 200 without exposing secrets: pass.
+- Flask route import/listing completed without external API calls: pass.
+- `pip check`: pass.
+- `ChatOpenAI` / `OPENAI_API_KEY` scoped source scan: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, outside `.env`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifacts removed outside `.venv`: pass.
+- `git diff --check`: pass.
+
+## Unresolved Issues
+
+- No Phase 12 code blockers found.
+- Full test discovery still emits the existing Hugging Face unauthenticated-request warning from the prior retriever integration test when credentials and index are available.
+
+## Next Expected Phase
+
+- Phase 13, only when explicitly requested.
