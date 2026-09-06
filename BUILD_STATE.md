@@ -453,3 +453,118 @@ Verified in `requirements.lock.txt`:
 ## Next Expected Phase
 
 - Phase 04, only when explicitly requested.
+
+---
+
+## Phase 04 - Configuration and Secrets
+
+Status: PASS
+Completion timestamp: 2026-09-06 20:21:19 +06
+
+## Scope
+
+- Implemented `src/config.py` configuration loading and validation.
+- Added configuration unit tests in `tests/test_config.py`.
+- Loaded `.env` using `python-dotenv`.
+- Added a frozen `Settings` dataclass.
+- Added separate validation methods:
+  - `validate_for_indexing()`
+  - `validate_for_runtime()`
+- Added clear missing-secret errors naming the missing environment variable.
+- Did not install or change dependencies.
+- Did not call Pinecone or OpenRouter.
+- Did not call or configure paid OpenAI API usage.
+- Did not print secret values.
+
+## `.env` Handling
+
+- `.env` existed before Phase 04 implementation.
+- `.env` was not copied from `.env.example` because it already existed.
+- Masked key status check showed:
+  - `PINECONE_API_KEY`: set
+  - `OPENROUTER_API_KEY`: set
+- Secret values were not printed.
+- `.env` remains ignored by Git.
+
+## Configuration Contract
+
+Defaults implemented:
+
+- `PINECONE_INDEX_NAME`: `medical-bot`
+- `PINECONE_CLOUD`: `aws`
+- `PINECONE_REGION`: `us-east-1`
+- `PINECONE_NAMESPACE`: `medical-chatbot-v1`
+- `OPENROUTER_MODEL`: `openrouter/free`
+- `FLASK_HOST`: `127.0.0.1`
+- `FLASK_PORT`: `8080`
+- `FLASK_DEBUG`: `false`
+- `DATA_DIR`: `data`
+
+## Files Changed In Phase 04
+
+- `src/config.py`
+- `tests/test_config.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 04
+
+- `pwd`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `find . -maxdepth 4 -type d -not -path './.git/*' -not -path './.venv/*' | sort`
+- `tail -n 240 BUILD_STATE.md`
+- `sed -n '1,220p' src/config.py`
+- `sed -n '1,220p' .env.example`
+- `git status --short --untracked-files=all`
+- `.venv/bin/python -m pip list --format=columns`
+- `if test -f .env; then printf '.env exists\n'; else printf '.env missing\n'; fi`
+- `.venv/bin/python - <<'PY' ... masked .env key status check ... PY`
+- `test -f tests/test_config.py && sed -n '1,260p' tests/test_config.py || true`
+- `mkdir -p tests`
+- `.venv/bin/python - <<'PY' ... compile src/config.py and tests/test_config.py ... PY`
+- `.venv/bin/python -m unittest tests.test_config -v`
+- `.venv/bin/python - <<'PY' ... load settings from .env with masked secret status ... PY`
+- `.venv/bin/python - <<'PY' ... missing validation error probe ... PY`
+- `.venv/bin/python - <<'PY' ... masked .env key status check for API keys ... PY`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' '(sk-[A-Za-z0-9_-]{20,}|OPENROUTER_API_KEY\s*=\s*[^[:space:]]+|PINECONE_API_KEY\s*=\s*[^[:space:]]+|OPENAI_API_KEY\s*=\s*[^[:space:]]+|BEGIN (RSA|OPENSSH|PRIVATE) KEY)' .`
+- `.venv/bin/python -m unittest tests.test_config -v`
+- `.venv/bin/python - <<'PY' ... validation error probe for indexing and runtime secrets ... PY`
+- `find . -path './.venv' -prune -o -type d -name '__pycache__' -print`
+- `find . -path './.venv' -prune -o -type f -name '*.pyc' -print`
+- `rm -r tests/__pycache__ src/__pycache__`
+- `find . -maxdepth 4 -type f -not -path './.git/*' -not -path './.venv/*' | sort`
+- `find . -maxdepth 4 -type d -not -path './.git/*' -not -path './.venv/*' | sort`
+- `find . -path './.venv' -prune -o -type d -name '__pycache__' -print`
+- `find . -path './.venv' -prune -o -type f -name '*.pyc' -print`
+- `.venv/bin/python - <<'PY' ... final masked .env API key status check ... PY`
+- `git status --short --untracked-files=all`
+- `git diff -- src/config.py tests/test_config.py BUILD_STATE.md | sed -n '1,360p'`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests and Acceptance Checks
+
+- Dependency environment inspected before implementation: pass.
+- Dependency changes made: none.
+- `src/config.py` syntax validation: pass.
+- `tests/test_config.py` syntax validation: pass.
+- Unit tests: pass, 5 tests.
+  - defaults load correctly
+  - boolean parsing works
+  - missing `.env` file is created from `.env.example`
+  - missing secret validation raises clear errors
+  - model/index constants match the project contract
+- `load_settings()` loads existing `.env` with `python-dotenv`: pass.
+- `validate_for_indexing()` missing secret error names `PINECONE_API_KEY`: pass.
+- `validate_for_runtime()` missing secret error names `OPENROUTER_API_KEY` when Pinecone key is present: pass.
+- Existing `.env` API key status check: both required API key fields are set.
+- No Pinecone/OpenRouter external connectivity calls made: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifact check outside `.venv`: pass.
+
+## Unresolved Issues
+
+- No Phase 04 blockers.
+- External connectivity remains intentionally untested because this phase forbids Pinecone/OpenRouter calls.
+
+## Next Expected Phase
+
+- Phase 05, only when explicitly requested.
