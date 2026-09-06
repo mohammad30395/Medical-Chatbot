@@ -960,3 +960,132 @@ Completion timestamp: 2026-09-06 21:54:04 +06
 ## Next Expected Phase
 
 - Phase 08, only when explicitly requested.
+
+---
+
+## Phase 08 - Indexing Pipeline
+
+Status: PASS
+Completion timestamp: 2026-09-06 22:27:55 +06
+
+## Scope
+
+- Implemented the explicit ingestion command in `store_index.py`.
+- Added reusable ingestion helpers in `src/indexing.py`.
+- Added helper-level indexing tests in `tests/test_indexing.py`.
+- Used existing PDF files from `data/`; no PDF content was invented or fabricated.
+- Used local `sentence-transformers/all-MiniLM-L6-v2` embeddings through `langchain_huggingface.HuggingFaceEmbeddings`.
+- Upserted chunks into the configured Pinecone index and namespace.
+- Did not build the LLM chain.
+- Did not call OpenRouter.
+- Did not install or change dependencies.
+
+## Indexing Flow Implemented
+
+- Data source: PDFs in configured `DATA_DIR`, currently `data`.
+- PDF loader: `load_pdf_documents`.
+- Chunking: `split_documents` with chunk size 500 and overlap 20.
+- Embeddings: local CPU all-MiniLM-L6-v2, expected dimension 384.
+- Vector store: `langchain_pinecone.PineconeVectorStore`.
+- Pinecone index: `medical-bot`.
+- Pinecone namespace: `medical-chatbot-v1`.
+- Verification query: one similarity search using a harmless short probe.
+
+## Idempotency and Rebuild Safety
+
+- Vector IDs are deterministic SHA-256 IDs based on source, page, chunk index, and chunk-content hash.
+- Re-running `store_index.py --ingest` reuses/updates the same IDs instead of creating duplicates.
+- The namespace vector count remained 5860 after two ingestion runs.
+- `--rebuild` refuses to clear data unless paired with `--yes-rebuild-namespace`.
+- Rebuild clearing is limited to the configured namespace only.
+- `--rebuild` without confirmation was tested and failed before clearing anything.
+
+## Real Indexing Result
+
+- Real command run: `.venv/bin/python store_index.py --ingest`.
+- PDFs found: 1.
+- Pages/documents loaded: 637.
+- Expected chunks: 5860.
+- IDs upserted: 5860.
+- Namespace vector count after indexing: 5860.
+- Similarity matches returned: 1.
+- Idempotency rerun result: namespace vector count remained 5860.
+- Direct post-guard namespace count check: 5860.
+
+## Files Changed In Phase 08
+
+- `src/indexing.py`
+- `store_index.py`
+- `tests/test_indexing.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 08
+
+- `pwd && rg --files -g '!*requirements.lock.txt' | sort | sed -n '1,200p'`
+- `sed -n '1,260p' BUILD_STATE.md`
+- `git status --short`
+- `find . -type d -name '__pycache__' -o -type f -name '*.pyc'`
+- `sed -n '1,260p' src/indexing.py`
+- `sed -n '1,260p' store_index.py`
+- `sed -n '1,260p' tests/test_indexing.py`
+- `.venv/bin/python -m py_compile src/indexing.py store_index.py tests/test_indexing.py`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python store_index.py --check-index`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `.venv/bin/python store_index.py --ingest`
+- `.venv/bin/python store_index.py --ingest`
+- `.venv/bin/python store_index.py --ingest --rebuild`
+- `.venv/bin/python -m pip check`
+- `sed -n '1,120p' .gitignore`
+- `.venv/bin/python - <<'PY' ... direct namespace vector count check ... PY`
+- `find data -maxdepth 2 -type f | sort`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `tail -n 220 BUILD_STATE.md`
+- `git diff -- store_index.py src/indexing.py tests/test_indexing.py`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `tail -n 180 BUILD_STATE.md`
+- `git status --short --untracked-files=all`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `git diff --check`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency changes made: none.
+- `src/indexing.py` syntax validation: pass.
+- `store_index.py` syntax validation: pass.
+- `tests/test_indexing.py` syntax validation: pass.
+- Full test discovery: pass, 28 tests.
+- New indexing tests cover:
+  - deterministic vector IDs are stable and content-sensitive
+  - namespace clearing requires explicit confirmation
+  - namespace clearing targets only the configured namespace
+  - Pinecone metadata sanitizing preserves supported values
+  - ingestion uses deterministic IDs and the configured namespace
+  - ID collisions fail clearly
+  - upsert ID count mismatch fails clearly
+  - `--ingest` CLI success path does not print fake secrets
+  - `--rebuild --yes-rebuild-namespace` CLI passes explicit confirmation flags
+- Real Pinecone index check: pass.
+- Real ingestion: pass.
+- Idempotency verification: pass.
+- Rebuild guard without confirmation: pass.
+- `pip check`: pass.
+- `.gitignore` still protects `.env`, virtual environments, caches, and PDFs: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifacts removed outside `.venv`: pass.
+- `git diff --check`: pass.
+- No OpenRouter calls made: pass.
+
+## Unresolved Issues
+
+- No Phase 08 code blockers.
+- `data/Medical_book.pdf` is present and ignored by Git. Its legal provenance remains the user's responsibility.
+- Hugging Face emitted an unauthenticated-request warning during model loading; the local embedding run still completed successfully.
+
+## Next Expected Phase
+
+- Phase 09, only when explicitly requested.
