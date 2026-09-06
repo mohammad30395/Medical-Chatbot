@@ -3,12 +3,194 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Medical Chatbot</title>
+    <title>Medical Knowledge Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   </head>
   <body>
-    <form method="post" action="/get">
-      <input type="text" name="msg" aria-label="Message">
-      <button type="submit">Send</button>
-    </form>
+    <main class="chat-shell" aria-label="Medical chatbot">
+      <header class="chat-header">
+        <div>
+          <p class="eyebrow">Source-grounded support</p>
+          <h1>Medical Knowledge Assistant</h1>
+          <p class="subtitle">Answers are grounded in the uploaded medical source.</p>
+        </div>
+        <div class="status-pill" aria-label="Assistant status">
+          <span class="status-dot" aria-hidden="true"></span>
+          Ready
+        </div>
+      </header>
+
+      <section
+        id="chatTranscript"
+        class="chat-transcript"
+        aria-label="Chat transcript"
+        aria-live="polite"
+      >
+        <article class="message-row assistant-row">
+          <div class="avatar" aria-hidden="true">+</div>
+          <div class="message-bubble assistant-bubble">
+            Ask a question about the uploaded medical source.
+          </div>
+        </article>
+      </section>
+
+      <form id="chatForm" class="composer" autocomplete="off">
+        <label class="sr-only" for="messageInput">Message</label>
+        <textarea
+          id="messageInput"
+          name="message"
+          rows="1"
+          placeholder="Type your medical-source question..."
+          aria-label="Message"
+          required
+        ></textarea>
+        <button id="sendButton" type="submit" aria-label="Send message">
+          Send
+        </button>
+      </form>
+
+      <p class="disclaimer">
+        Educational information only. Not a substitute for professional medical advice.
+      </p>
+    </main>
+
+    <script>
+      const form = document.querySelector("#chatForm");
+      const input = document.querySelector("#messageInput");
+      const sendButton = document.querySelector("#sendButton");
+      const transcript = document.querySelector("#chatTranscript");
+      let pending = false;
+
+      function normalizeText(value) {
+        return value.trim().replace(/\s+/g, " ");
+      }
+
+      function resizeInput() {
+        input.style.height = "auto";
+        input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+      }
+
+      function appendMessage(role, text, options = {}) {
+        const row = document.createElement("article");
+        row.className = `message-row ${role}-row`;
+        if (options.loading) {
+          row.dataset.loading = "true";
+        }
+
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+        avatar.setAttribute("aria-hidden", "true");
+        avatar.textContent = role === "user" ? "U" : "+";
+
+        const bubble = document.createElement("div");
+        bubble.className = `message-bubble ${role}-bubble`;
+        if (options.loading) {
+          bubble.classList.add("typing");
+          bubble.setAttribute("aria-label", "Assistant is typing");
+          bubble.textContent = "Thinking";
+        } else {
+          bubble.textContent = text;
+        }
+
+        if (role === "user") {
+          row.append(bubble, avatar);
+        } else {
+          row.append(avatar, bubble);
+        }
+
+        transcript.append(row);
+        transcript.scrollTop = transcript.scrollHeight;
+        return row;
+      }
+
+      function removeLoadingMessage(row) {
+        if (row && row.dataset.loading === "true") {
+          row.remove();
+        }
+      }
+
+      function friendlyError(status, payload) {
+        if (payload && payload.error) {
+          return payload.error;
+        }
+        if (status === 400) {
+          return "Please enter a question before sending.";
+        }
+        if (status === 429 || status === 503) {
+          return "The assistant is temporarily unavailable. Please try again shortly.";
+        }
+        return "Something went wrong. Please try again.";
+      }
+
+      async function submitMessage() {
+        if (pending) {
+          return;
+        }
+
+        const userText = normalizeText(input.value);
+        if (!userText) {
+          input.focus();
+          return;
+        }
+
+        pending = true;
+        input.value = "";
+        resizeInput();
+        input.disabled = true;
+        sendButton.disabled = true;
+
+        appendMessage("user", userText);
+        const loadingRow = appendMessage("assistant", "", { loading: true });
+
+        try {
+          const response = await fetch("/get", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: userText }),
+          });
+
+          let payload = {};
+          try {
+            payload = await response.json();
+          } catch (error) {
+            payload = {};
+          }
+
+          removeLoadingMessage(loadingRow);
+          if (!response.ok) {
+            appendMessage("assistant", friendlyError(response.status, payload));
+            return;
+          }
+
+          appendMessage("assistant", payload.answer || "No answer was returned.");
+        } catch (error) {
+          removeLoadingMessage(loadingRow);
+          appendMessage(
+            "assistant",
+            "The assistant could not be reached. Check the server and try again."
+          );
+        } finally {
+          pending = false;
+          input.disabled = false;
+          sendButton.disabled = false;
+          input.focus();
+        }
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        submitMessage();
+      });
+
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          form.requestSubmit();
+        }
+      });
+
+      input.addEventListener("input", resizeInput);
+      resizeInput();
+    </script>
   </body>
 </html>

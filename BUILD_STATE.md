@@ -1695,3 +1695,112 @@ Completion timestamp: 2026-09-07 01:33:39 +06
 ## Next Expected Phase
 
 - Phase 13, only when explicitly requested.
+
+---
+
+## Phase 13 - Frontend
+
+Status: PASS
+Completion timestamp: 2026-09-07 01:40:37 +06
+
+## Scope
+
+- Implemented `templates/chat.html` as a responsive single-page chat UI.
+- Added `static/style.css`.
+- Preserved the existing Phase 12 Flask backend behavior.
+- Did not add authentication, accounts, history databases, or extra features.
+- Did not change dependencies.
+- Did not call OpenRouter from browser JavaScript.
+- Did not call Pinecone from browser JavaScript.
+- Did not expose API keys in browser JavaScript.
+- Did not use external CDN dependencies.
+
+## Frontend Contract
+
+- Header text: `Medical Knowledge Assistant`.
+- Visible subtitle: `Answers are grounded in the uploaded medical source.`
+- Includes chat transcript area.
+- Includes user and assistant message bubbles.
+- Includes textarea input and send button.
+- Enter submits.
+- Shift+Enter can insert a newline.
+- Loading/typing state is shown while a request is pending.
+- Duplicate submissions are disabled while a request is pending.
+- Browser sends `POST /get` with JSON shaped as `{ "message": userText }`.
+- Browser reads JSON shaped as `{ "answer": "..." }`.
+- HTTP failures show friendly error messages.
+- User and assistant content is rendered with `textContent`, not raw HTML insertion.
+- Focus returns to the input after a response or handled failure.
+- Includes disclaimer: `Educational information only. Not a substitute for professional medical advice.`
+- Input and send button include accessible labels.
+- Styling is kept in `static/style.css`.
+
+## Files Changed In Phase 13
+
+- `templates/chat.html`
+- `static/style.css`
+- `tests/test_app.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 13
+
+- `pwd && rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 180 BUILD_STATE.md`
+- `sed -n '1,240p' templates/chat.html`
+- `sed -n '1,220p' app.py`
+- `.venv/bin/python -m py_compile app.py tests/test_app.py`
+- `.venv/bin/python -m unittest tests.test_app -v`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python - <<'PY' ... print configured Flask host/port/debug ... PY`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `.venv/bin/python app.py`
+- `curl -sS -o /tmp/medical_chatbot_home.html -w '%{http_code}\n' http://127.0.0.1:8080/`
+- `curl -sS -o /tmp/medical_chatbot_style.css -w '%{http_code}\n' http://127.0.0.1:8080/static/style.css`
+- `curl -sS http://127.0.0.1:8080/health`
+- `rg -n 'OpenRouter|openrouter|Pinecone|pinecone|OPENROUTER|PINECONE|innerHTML|insertAdjacentHTML|outerHTML' templates static || true`
+- `rg -n 'https?://|cdn|api\.openrouter|pinecone\.io' templates static || true`
+- `git diff -- templates/chat.html static/style.css tests/test_app.py app.py`
+- `git status --short --untracked-files=all`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `git diff --check`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' 'ChatOpenAI|OPENAI_API_KEY' app.py src tests scripts store_index.py template.py setup.py README.md .env.example templates static`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `tail -n 130 BUILD_STATE.md`
+- `curl -sS -o /tmp/medical_chatbot_home_final.html -w '%{http_code}\n' http://127.0.0.1:8080/`
+- `rg -n 'Completion timestamp' BUILD_STATE.md`
+- `sed -n '1588,1710p' BUILD_STATE.md`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment inspected: pass.
+- Dependency changes made: none.
+- `app.py` syntax validation: pass.
+- `tests/test_app.py` syntax validation: pass.
+- Focused Flask/frontend tests: pass, 11 tests.
+- Full suite with repository test path: pass, 56 tests.
+- GET `/` renders the Phase 13 frontend: pass.
+- Static stylesheet served from `/static/style.css`: pass.
+- Manual local GET `/`: pass, HTTP 200.
+- Manual local GET `/static/style.css`: pass, HTTP 200.
+- Manual local GET `/health`: pass, HTTP 200 and no secret values.
+- Browser-side direct OpenRouter/Pinecone reference scan: pass.
+- Browser-side raw HTML insertion scan: pass.
+- External URL/CDN scan for `templates/` and `static/`: pass.
+- `ChatOpenAI` / `OPENAI_API_KEY` scoped source scan: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, outside `.env`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifacts removed outside `.venv`: pass.
+- `git diff --check`: pass.
+
+## Unresolved Issues
+
+- No Phase 13 code blockers found.
+- Full test discovery still emits the existing Hugging Face unauthenticated-request warning from the prior retriever integration test when credentials and index are available.
+- The Flask development server is running locally at `http://127.0.0.1:8080`.
+
+## Next Expected Phase
+
+- Phase 14, only when explicitly requested.

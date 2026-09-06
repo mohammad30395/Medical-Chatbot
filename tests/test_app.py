@@ -20,6 +20,28 @@ class FlaskBackendTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
 
+    def test_get_index_renders_phase_13_frontend(self) -> None:
+        response = self.client.get("/")
+        body = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Medical Knowledge Assistant", body)
+        self.assertIn("Answers are grounded in the uploaded medical source.", body)
+        self.assertIn("Educational information only.", body)
+        self.assertIn("/get", body)
+        self.assertIn("fetch", body)
+        self.assertIn("textContent", body)
+        self.assertNotIn("OPENROUTER_API_KEY", body)
+        self.assertNotIn("PINECONE_API_KEY", body)
+
+    def test_static_style_returns_200(self) -> None:
+        response = self.client.get("/static/style.css")
+        try:
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("chat-shell", response.get_data(as_text=True))
+        finally:
+            response.close()
+
     def test_post_get_empty_returns_400(self) -> None:
         response = self.client.post("/get", json={"message": "   "})
 
