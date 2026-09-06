@@ -19,13 +19,16 @@ from src.rag import (
     LLMError,
     PREVIEW_MAX_CHARS,
     RETRIEVER_SEARCH_KWARGS,
+    answer_question,
     get_llm,
+    get_rag_chain,
     get_retriever,
     get_vector_store,
     print_retrieval_diagnostics,
     retrieval_previews,
     smoke_test_llm,
 )
+from src.prompt import MEDICAL_QA_PROMPT, MEDICAL_SYSTEM_PROMPT, UNKNOWN_CONTEXT_RESPONSE
 
 
 class FakeVectorStore:
@@ -55,6 +58,16 @@ class FakeRetriever:
                 metadata={"source": "other.pdf", "page": 9},
             ),
         ]
+
+
+class FakeRagChain:
+    def __init__(self, result: object) -> None:
+        self.result = result
+        self.invocations: list[dict[str, str]] = []
+
+    def invoke(self, inputs: dict[str, str]) -> object:
+        self.invocations.append(inputs)
+        return self.result
 
 
 class FakeChatOpenRouter:
@@ -203,6 +216,67 @@ class RagUnitTests(unittest.TestCase):
 
         with self.assertRaisesRegex(LLMError, "empty response"):
             smoke_test_llm(settings=self.settings)
+
+    def test_medical_prompt_has_required_variables_and_unknown_instruction(self) -> None:
+        self.assertEqual(set(MEDICAL_QA_PROMPT.input_variables), {"context", "input"})
+        self.assertIn("{context}", MEDICAL_SYSTEM_PROMPT)
+        self.assertIn(UNKNOWN_CONTEXT_RESPONSE, MEDICAL_SYSTEM_PROMPT)
+        messages = MEDICAL_QA_PROMPT.format_messages(context="", input="Unknown topic?")
+
+        self.assertIn(UNKNOWN_CONTEXT_RESPONSE, messages[0].content)
+        self.assertEqual(messages[1].content, "Unknown topic?")
+
+    @patch("src.rag.create_retrieval_chain", return_value=SimpleNamespace(name="rag"))
+    @patch(
+        "src.rag.create_stuff_documents_chain",
+        return_value=SimpleNamespace(name="qa"),
+    )
+    def test_get_rag_chain_uses_tutorial_factories(
+        self,
+        mock_create_stuff_documents_chain,
+        mock_create_retrieval_chain,
+    ) -> None:
+        llm = SimpleNamespace(name="llm")
+        retriever = SimpleNamespace(name="retriever")
+
+        chain = get_rag_chain(llm=llm, retriever=retriever)
+
+        self.assertEqual(chain.name, "rag")
+        mock_create_stuff_documents_chain.assert_called_once_with(
+            llm,
+            MEDICAL_QA_PROMPT,
+        )
+        mock_create_retrieval_chain.assert_called_once_with(
+            retriever,
+            mock_create_stuff_documents_chain.return_value,
+        )
+
+    def test_answer_question_rejects_empty_input(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must not be empty"):
+            answer_question("   ", rag_chain=FakeRagChain({"answer": "unused"}))
+
+    def test_answer_question_invokes_chain_and_returns_source_metadata(self) -> None:
+        document = Document(
+            page_content="full context must not be returned",
+            metadata={"source": "fixture.pdf", "page": 2},
+        )
+        chain = FakeRagChain({"answer": "A concise answer.", "context": [document]})
+
+        result = answer_question(" What is diabetes? ", rag_chain=chain)
+
+        self.assertEqual(chain.invocations, [{"input": "What is diabetes?"}])
+        self.assertEqual(result["answer"], "A concise answer.")
+        self.assertEqual(result["sources"], [{"source": "fixture.pdf", "page": 2}])
+        self.assertNotIn("context", result)
+        self.assertNotIn("full context", str(result))
+
+    def test_answer_question_handles_unsupported_context_response(self) -> None:
+        chain = FakeRagChain({"answer": UNKNOWN_CONTEXT_RESPONSE, "context": []})
+
+        result = answer_question("What is an unsupported fact?", rag_chain=chain)
+
+        self.assertEqual(result["answer"], UNKNOWN_CONTEXT_RESPONSE)
+        self.assertEqual(result["sources"], [])
 
 
 class SmokeScriptTests(unittest.TestCase):

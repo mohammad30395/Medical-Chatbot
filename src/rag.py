@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from langchain_classic.chains import create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.documents import Document
 from langchain_openrouter import ChatOpenRouter
 from langchain_pinecone import PineconeVectorStore
@@ -13,6 +15,7 @@ from langchain_pinecone import PineconeVectorStore
 from src.config import ConfigurationError, Settings, load_settings
 from src.helper import get_embeddings
 from src.pinecone_index import ensure_pinecone_index
+from src.prompt import MEDICAL_QA_PROMPT
 
 
 RETRIEVER_SEARCH_KWARGS = {"k": 3}
@@ -126,6 +129,90 @@ def smoke_test_llm(*, settings: Settings | None = None) -> str:
     if not content:
         raise LLMError("OpenRouter returned an empty response.")
     return content
+
+
+def get_rag_chain(
+    *,
+    settings: Settings | None = None,
+    llm: Any | None = None,
+    retriever: Any | None = None,
+    prompt: Any = MEDICAL_QA_PROMPT,
+) -> Any:
+    """Build the tutorial-style retrieval augmented generation chain."""
+    resolved_llm = llm or get_llm(settings=settings)
+    resolved_retriever = retriever or get_retriever(settings=settings)
+    question_answer_chain = create_stuff_documents_chain(resolved_llm, prompt)
+    return create_retrieval_chain(resolved_retriever, question_answer_chain)
+
+
+def _extract_answer(chain_result: Any) -> str:
+    if isinstance(chain_result, str):
+        return chain_result.strip()
+
+    if isinstance(chain_result, dict):
+        for key in ("answer", "output_text", "result"):
+            value = chain_result.get(key)
+            if value is None:
+                continue
+            content = getattr(value, "content", value)
+            text = str(content).strip()
+            if text:
+                return text
+
+    content = getattr(chain_result, "content", None)
+    if content is not None:
+        text = str(content).strip()
+        if text:
+            return text
+
+    raise LLMError("RAG chain returned no answer text.")
+
+
+def _extract_source_metadata(chain_result: Any) -> list[dict[str, object]]:
+    if not isinstance(chain_result, dict):
+        return []
+
+    documents = chain_result.get("context") or chain_result.get("source_documents") or []
+    sources: list[dict[str, object]] = []
+    seen: set[tuple[str, str]] = set()
+    for document in documents:
+        metadata = getattr(document, "metadata", {}) or {}
+        source = str(metadata.get("source", "unknown"))
+        page = metadata.get("page", "unknown")
+        key = (source, str(page))
+        if key in seen:
+            continue
+        seen.add(key)
+        sources.append({"source": source, "page": page})
+    return sources
+
+
+def answer_question(
+    question: str,
+    *,
+    rag_chain: Any | None = None,
+    settings: Settings | None = None,
+) -> dict[str, object]:
+    """Answer a user question with the configured RAG chain."""
+    normalized_question = question.strip()
+    if not normalized_question:
+        raise ValueError("Question must not be empty.")
+
+    resolved_settings = settings
+    chain = rag_chain or get_rag_chain(settings=resolved_settings)
+    try:
+        chain_result = chain.invoke({"input": normalized_question})
+    except LLMError:
+        raise
+    except Exception as exc:
+        resolved_settings = resolved_settings or load_settings()
+        raise _to_llm_error(exc, resolved_settings) from exc
+
+    answer = _extract_answer(chain_result)
+    return {
+        "answer": answer,
+        "sources": _extract_source_metadata(chain_result),
+    }
 
 
 def get_vector_store(

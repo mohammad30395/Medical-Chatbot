@@ -1460,3 +1460,129 @@ Resolution timestamp: 2026-09-07 01:17:25 +06
 ## Next Expected Phase
 
 - Phase 11, only when explicitly requested.
+
+---
+
+## Phase 11 - RAG Chain
+
+Status: PASS
+Completion timestamp: 2026-09-07 01:23:50 +06
+
+## Scope
+
+- Implemented `src/prompt.py`.
+- Finished the core tutorial-style RAG chain in `src/rag.py`.
+- Added unit tests for the prompt and RAG chain behavior in `tests/test_rag.py`.
+- Used `ChatPromptTemplate` from `langchain_core.prompts`.
+- Used `create_retrieval_chain` from `langchain_classic.chains`.
+- Used `create_stuff_documents_chain` from `langchain_classic.chains.combine_documents`.
+- Did not add application UI or Flask routes.
+- Did not change dependencies.
+- Did not upload, delete, or rebuild Pinecone data.
+
+## Prompt Contract
+
+- System role: educational medical-information assistant.
+- Factual medical claims must use only supplied retrieved context.
+- Unsupported-context fallback is exactly: `I don't know based on the provided medical source.`
+- Prompt instructs the model not to invent diagnoses, treatments, drug doses, contraindications, or facts absent from context.
+- Prompt instructs the model not to claim to replace a clinician.
+- Prompt instructs urgent professional/emergency help for possible emergencies.
+- Prompt keeps answers concise and readable.
+- System message includes `{context}`.
+- Human message uses `{input}`.
+
+## RAG Chain Contract
+
+- `get_rag_chain()` builds:
+  - `question_answer_chain = create_stuff_documents_chain(llm, prompt)`
+  - `rag_chain = create_retrieval_chain(retriever, question_answer_chain)`
+- `answer_question(question)` rejects empty or whitespace-only input.
+- `answer_question(question)` invokes the chain with `{"input": question}`.
+- `answer_question(question)` extracts final answer text robustly from common returned structures.
+- `answer_question(question)` returns a Flask-suitable dictionary:
+  - `answer`
+  - `sources`
+- Returned `sources` contain only metadata such as source and page.
+- Full retrieved context is not returned by `answer_question()`.
+
+## Real End-to-End RAG Query
+
+- Command run once after unit tests passed: `.venv/bin/python - <<'PY' ... answer_question('What is diabetes mellitus?') ... PY`
+- Query: `What is diabetes mellitus?`
+- Result: PASS.
+- Answer non-empty: yes.
+- Source metadata count: 3.
+- Full retrieved context printed: no.
+- OpenRouter model used from `.env`: `openai/gpt-chat-latest`.
+
+## Files Changed In Phase 11
+
+- `src/prompt.py`
+- `src/rag.py`
+- `tests/test_rag.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 11
+
+- `pwd && rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 300 BUILD_STATE.md`
+- `sed -n '1,260p' src/rag.py`
+- `sed -n '1,320p' tests/test_rag.py`
+- `.venv/bin/python - <<'PY' ... inspect ChatPromptTemplate and chain factory signatures ... PY`
+- `.venv/bin/python - <<'PY' ... inspect create_retrieval_chain and create_stuff_documents_chain source ... PY`
+- `test -f src/prompt.py && sed -n '1,220p' src/prompt.py || true`
+- `git status --short --untracked-files=all`
+- `.venv/bin/python -m py_compile src/prompt.py src/rag.py tests/test_rag.py`
+- `.venv/bin/python -m unittest tests.test_rag -v`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python -m unittest discover -v`
+- `.venv/bin/python - <<'PY' ... real answer_question RAG query ... PY`
+- `.venv/bin/python -m pip check`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' 'ChatOpenAI|OPENAI_API_KEY' src tests scripts app.py store_index.py template.py setup.py README.md .env.example`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `git diff --check`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `git diff -- src/rag.py src/prompt.py tests/test_rag.py`
+- `tail -n 220 BUILD_STATE.md`
+- `git status --short --untracked-files=all`
+- `git diff --check`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `git diff --stat`
+- `tail -n 90 BUILD_STATE.md`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment inspected before implementation: pass.
+- Dependency changes made: none.
+- Installed chain factory signatures inspected: pass.
+- `src/prompt.py` syntax validation: pass.
+- `src/rag.py` syntax validation: pass.
+- `tests/test_rag.py` syntax validation: pass.
+- Focused RAG tests: pass, 17 tests.
+- Full suite with repository test path: pass, 45 tests.
+- `python -m unittest discover -v`: ran 0 tests due this repository's discovery layout.
+- `answer_question()` empty input rejection: pass.
+- `answer_question()` invokes with `{"input": question}`: pass.
+- `answer_question()` does not return full context: pass.
+- Unsupported-context behavior covered by prompt-level validation and deterministic fake chain: pass.
+- Real end-to-end RAG query after tests: pass.
+- `pip check`: pass.
+- `ChatOpenAI` / `OPENAI_API_KEY` scoped source scan: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, outside `.env`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifacts removed outside `.venv`: pass.
+- `git diff --check`: pass.
+
+## Unresolved Issues
+
+- No Phase 11 code blockers found.
+- The real RAG query emitted the existing Hugging Face unauthenticated-request warning during embedding model load; retrieval and answer generation completed successfully.
+- The existing local PDF in `data/` remains ignored by Git, and legal provenance remains the user's responsibility.
+
+## Next Expected Phase
+
+- Phase 12, only when explicitly requested.
