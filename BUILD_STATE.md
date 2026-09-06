@@ -813,3 +813,150 @@ Completion timestamp: 2026-09-06 21:29:20 +06
 ## Next Expected Phase
 
 - Phase 07, only when explicitly requested.
+
+---
+
+## Phase 07 - Pinecone Index Setup
+
+Status: PASS
+Completion timestamp: 2026-09-06 21:54:04 +06
+
+## Scope
+
+- Implemented safe Pinecone index management in `src/pinecone_index.py`.
+- Updated `store_index.py` only enough to support `--check-index`.
+- Added Pinecone index-management unit tests in `tests/test_pinecone_index.py`.
+- Used the current `pinecone` Python SDK (`pinecone==7.3.0`), not `pinecone-client`.
+- Did not upload document chunks.
+- Did not modify RAG application logic.
+- Did not call OpenRouter.
+- Did not print the Pinecone API key.
+- Did not install or change dependencies.
+
+## Pinecone Index Contract
+
+- Index name source: `PINECONE_INDEX_NAME`, default `medical-bot`.
+- Actual configured index checked: `medical-bot`.
+- Vector type: dense.
+- Dimension: 384.
+- Metric: cosine.
+- Deployment type: serverless.
+- Configured cloud: `aws`.
+- Configured region: `us-east-1`.
+- Namespace remains separate from index configuration: `PINECONE_NAMESPACE=medical-chatbot-v1`.
+
+## Implemented Functions
+
+- `create_pinecone_client(settings=None)`: initializes Pinecone with `PINECONE_API_KEY`.
+- `ensure_pinecone_index(settings=None, pinecone_client=None, wait=True)`: lists indexes, creates missing index with the project contract, validates existing indexes, waits for readiness, and returns a Pinecone `Index` connection.
+- `wait_for_index_ready(pinecone_client, index_name, ...)`: polls until ready.
+- `check_pinecone_index(settings=None, pinecone_client=None)`: reusable connectivity/contract check returning a safe summary object.
+
+## Safety Behavior
+
+- Existing indexes are inspected before use.
+- If an existing index has a different dimension, metric, or vector type, the code raises `PineconeIndexError`.
+- The code does not delete or recreate incompatible existing indexes automatically.
+- Safe recovery options in the error message:
+  - change `PINECONE_INDEX_NAME` in `.env` to a new empty index name, or
+  - manually delete/recreate the existing index in Pinecone after confirming no needed data will be lost.
+- Region/create failures are wrapped with the configured cloud/region and Pinecone response while redacting the API key if it appears in the message.
+
+## Real Connectivity Check
+
+- Command run: `.venv/bin/python store_index.py --check-index`.
+- Authentication: pass.
+- Target index exists: pass.
+- Dimension: 384.
+- Metric: cosine.
+- Vector type: dense.
+- Ready: True.
+- No chunks uploaded.
+
+## Files Changed In Phase 07
+
+- `src/pinecone_index.py`
+- `store_index.py`
+- `tests/test_pinecone_index.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 07
+
+- `pwd`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `find . -maxdepth 4 -type d -not -path './.git/*' -not -path './.venv/*' | sort`
+- `tail -n 280 BUILD_STATE.md`
+- `sed -n '1,260p' src/config.py`
+- `sed -n '1,260p' store_index.py`
+- `sed -n '1,360p' tests/test_helper.py`
+- `git status --short --untracked-files=all`
+- `.venv/bin/python - <<'PY' ... inspect Pinecone SDK signatures ... PY`
+- `.venv/bin/python - <<'PY' ... masked Pinecone .env status check ... PY`
+- `.venv/bin/python -m pip list --format=columns | rg '^(pinecone|langchain-pinecone)\s+'`
+- `test -f tests/test_pinecone_index.py && sed -n '1,360p' tests/test_pinecone_index.py || true`
+- `.venv/bin/python - <<'PY' ... compile src/pinecone_index.py, store_index.py, tests/test_pinecone_index.py ... PY`
+- `.venv/bin/python -m unittest tests.test_pinecone_index -v`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python - <<'PY' ... import Pinecone index helpers/constants ... PY`
+- `.venv/bin/python store_index.py --help`
+- `.venv/bin/python store_index.py --check-index`
+- `.venv/bin/python - <<'PY' ... describe Pinecone index contract fields ... PY`
+- `.venv/bin/python -m unittest tests.test_pinecone_index -v`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `.venv/bin/python store_index.py --check-index`
+- `.venv/bin/python - <<'PY' ... compile Phase 07 Python files ... PY`
+- `.venv/bin/python -m pip check`
+- `find . -path './.venv' -prune -o -type d -name '__pycache__' -print`
+- `find . -path './.venv' -prune -o -type f -name '*.pyc' -print`
+- `git status --short --untracked-files=all`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' '(sk-[A-Za-z0-9_-]{20,}|OPENROUTER_API_KEY\s*=\s*[^[:space:]]+|PINECONE_API_KEY\s*=\s*[^[:space:]]+|OPENAI_API_KEY\s*=\s*[^[:space:]]+|BEGIN (RSA|OPENSSH|PRIVATE) KEY)' .`
+- `find data -type f \( -iname '*.pdf' \) -exec basename {} \; | sort`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `rm -r __pycache__ tests/__pycache__ src/__pycache__`
+- `tail -n 190 BUILD_STATE.md`
+- `find . -path './.venv' -prune -o -type d -name '__pycache__' -print`
+- `find . -path './.venv' -prune -o -type f -name '*.pyc' -print`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' '(sk-[A-Za-z0-9_-]{20,}|OPENROUTER_API_KEY\s*=\s*[^[:space:]]+|PINECONE_API_KEY\s*=\s*[^[:space:]]+|OPENAI_API_KEY\s*=\s*[^[:space:]]+|BEGIN (RSA|OPENSSH|PRIVATE) KEY)' .`
+- `git status --short --untracked-files=all`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment inspected before implementation: pass.
+- Dependency changes made: none.
+- Pinecone SDK signature inspection: pass.
+- `src/pinecone_index.py` syntax validation: pass.
+- `store_index.py` syntax validation: pass.
+- `tests/test_pinecone_index.py` syntax validation: pass.
+- Pinecone unit tests: pass, 6 tests.
+  - existing matching index returns an index connection
+  - missing index is created with dimension 384, metric cosine, vector type dense
+  - existing mismatched dimension stops without delete
+  - existing mismatched vector type stops without delete
+  - check reports verified index contract
+  - `--check-index` CLI succeeds without printing fake secrets
+- Full test discovery: pass, 19 tests.
+- `store_index.py --help`: pass.
+- Real `store_index.py --check-index`: pass.
+- Real connectivity confirmed:
+  - authentication works
+  - target index exists
+  - dimension is 384
+  - metric is cosine
+  - vector type is dense
+  - index is ready
+- `pip check`: pass.
+- No Pinecone uploads performed: pass.
+- No OpenRouter calls made: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifacts removed outside `.venv`: pass.
+- Final Git status after Phase 07 changes: `BUILD_STATE.md` modified, `store_index.py` modified, `src/pinecone_index.py` untracked, `tests/test_pinecone_index.py` untracked.
+
+## Unresolved Issues
+
+- No Phase 07 blockers.
+- `data/Medical_book.pdf` remains present and ignored by Git; legal provenance remains the user's responsibility.
+
+## Next Expected Phase
+
+- Phase 08, only when explicitly requested.
