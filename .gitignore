@@ -10,6 +10,7 @@ env/
 
 # Python caches
 __pycache__/
+*.pyc
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
@@ -24,6 +25,10 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+
+# Project data artifacts
+data/*.pdf
+data/*.PDF
 
 # Logs
 *.log

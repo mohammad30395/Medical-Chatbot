@@ -135,3 +135,133 @@ Audit timestamp: 2026-09-06 15:26:15 +06
 ## Next Expected Phase
 
 - Phase 02, only when explicitly requested.
+
+---
+
+## Phase 02 - Project Scaffold
+
+Status: PASS
+Completion timestamp: 2026-09-06 18:49:58 +06
+
+## Scope
+
+- Built the requested project skeleton only.
+- Did not implement RAG logic.
+- Did not install dependencies.
+- Did not create `.env`.
+- Did not add real secrets.
+- Did not initialize Pinecone or OpenRouter.
+- Did not use `template.py` to overwrite this repository.
+
+## Files Changed In Phase 02
+
+- `.gitignore`
+- `.env.example`
+- `README.md`
+- `app.py`
+- `data/.gitkeep`
+- `requirements.txt`
+- `research/trials.ipynb`
+- `setup.py`
+- `src/__init__.py`
+- `src/config.py`
+- `store_index.py`
+- `template.py`
+- `BUILD_STATE.md`
+
+## Scaffold Created
+
+- `app.py`
+- `store_index.py`
+- `template.py`
+- `setup.py`
+- `requirements.txt`
+- `.env.example`
+- `README.md`
+- `data/.gitkeep`
+- `research/trials.ipynb`
+- `src/__init__.py`
+- `src/config.py`
+
+## Dependency State
+
+- Installed environment inspected before creating `requirements.txt`.
+- Python checked: Python 3.10.21
+- pip checked: pip 26.2.1 for Python 3.10
+- Installed packages checked:
+  - pip 26.2.1
+  - setuptools 84.0.0
+  - wheel 0.48.0
+- `requirements.txt` intentionally contains only a placeholder comment. Dependencies will be added in a later phase.
+- Dependency installation action: none.
+
+## Environment File State
+
+- `.env.example` contains only the requested variable names and non-secret default values.
+- API key variables in `.env.example` are blank:
+  - `PINECONE_API_KEY=`
+  - `OPENROUTER_API_KEY=`
+- `.env` file exists: no.
+
+## Commands Run In Phase 02
+
+- `pwd`
+- `find . -maxdepth 4 -type f -not -path './.git/*' | sort`
+- `find . -maxdepth 4 -type d -not -path './.git/*' | sort`
+- `sed -n '1,260p' BUILD_STATE.md`
+- `sed -n '1,200p' .gitignore`
+- `git status --short`
+- `python3.10 --version`
+- `python3.10 -m pip --version`
+- `python3.10 -m pip list --format=columns`
+- `find . -maxdepth 4 -type f -not -path './.git/*' \( -name '.env' -o -name '*.pem' -o -name '*.key' -o -name '*credential*' \) -print`
+- `rg -n --hidden --glob '!.git/**' --glob '!BUILD_STATE.md' --glob '!.gitignore' '(sk-[A-Za-z0-9_-]{20,}|OPENROUTER_API_KEY\s*=|PINECONE_API_KEY\s*=|OPENAI_API_KEY\s*=|BEGIN (RSA|OPENSSH|PRIVATE) KEY)' .`
+- `mkdir -p data research src`
+- `python3.10 -m py_compile app.py store_index.py template.py setup.py src/__init__.py src/config.py`
+- `python3.10 -m json.tool research/trials.ipynb >/dev/null`
+- `python3.10 -c 'from setuptools import find_packages; print(find_packages(include=["src", "src.*"])); import src.config; print(src.config.REQUIRED_ENV_VARS[0])'`
+- `test ! -f .env && printf 'no .env file\n'`
+- `rg -n '^(.env|.venv/|venv/|__pycache__/|\*\.pyc|.pytest_cache/|.DS_Store|data/\*\.pdf|data/\*\.PDF)$' .gitignore`
+- `rg -n --hidden --glob '!.git/**' --glob '!BUILD_STATE.md' '(sk-[A-Za-z0-9_-]{20,}|OPENROUTER_API_KEY\s*=\s*[^[:space:]]+|PINECONE_API_KEY\s*=\s*[^[:space:]]+|OPENAI_API_KEY\s*=\s*[^[:space:]]+|BEGIN (RSA|OPENSSH|PRIVATE) KEY)' .`
+- `find . -type d -name '__pycache__' -print`
+- `find . -type f -name '*.pyc' -print`
+- `rm -r __pycache__ src/__pycache__`
+- `python3.10 - <<'PY' ... compile scaffold Python files ... PY`
+- `python3.10 - <<'PY' ... validate .env.example exact contents ... PY`
+- `python3.10 - <<'PY' ... verify .env.example API key values are blank ... PY`
+- `python3.10 - <<'PY' ... verify required scaffold files are present ... PY`
+- `python3.10 - <<'PY' ... verify editable-install package discovery and src.config import ... PY`
+- `rm -r src/__pycache__`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `sed -n '1,360p' BUILD_STATE.md`
+- `find . -maxdepth 4 -type f -not -path './.git/*' | sort`
+- `find . -maxdepth 4 -type d -not -path './.git/*' | sort`
+- `find . -type d -name '__pycache__' -print`
+- `find . -type f -name '*.pyc' -print`
+- `rg -n --hidden --glob '!.git/**' --glob '!BUILD_STATE.md' '(sk-[A-Za-z0-9_-]{20,}|OPENROUTER_API_KEY\s*=\s*[^[:space:]]+|PINECONE_API_KEY\s*=\s*[^[:space:]]+|OPENAI_API_KEY\s*=\s*[^[:space:]]+|BEGIN (RSA|OPENSSH|PRIVATE) KEY)' .`
+- `git status --short`
+
+## Tests and Acceptance Checks
+
+- Directory scaffold present: pass.
+- Final scaffold directories present: `.`, `.git`, `data`, `research`, `src`.
+- Existing non-scaffold planning/repo files preserved: `.gitattributes`, `.gitignore`, `BUILD_STATE.md`.
+- Python placeholder syntax validation: pass.
+- Minimal notebook JSON validation: pass.
+- Editable-install package discovery using `find_packages(include=["src", "src.*"])`: pass, discovered `['src']`.
+- `src.config` import check: pass.
+- `.gitignore` includes required protections: pass.
+- `.env.example` exact requested contents: pass.
+- `.env.example` API key values blank: pass.
+- Secret-shaped value scan outside `.git` and excluding `BUILD_STATE.md`: pass.
+- `.env` absent: pass.
+- Python bytecode caches removed after validation: pass.
+
+## Unresolved Issues
+
+- No Phase 02 blockers.
+- Future content prerequisite remains: no medical source PDFs exist in `data/`. Later phases must use only actual files placed there by the user.
+
+## Next Expected Phase
+
+- Phase 03, only when explicitly requested.
