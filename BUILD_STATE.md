@@ -4561,6 +4561,156 @@ Completion timestamp: 2026-09-07 22:59:21 +06
 
 ---
 
+## Deployment Phase 26 - Vercel Production Deployment
+
+Status: BLOCKED
+Completion timestamp: 2026-09-08 00:02:04 +06
+
+## Scope
+
+- Ran Production deployment preflight only.
+- Did not run `vercel deploy --prod` because the required Preview deployment PASS prerequisite is not met.
+- Did not create a Production deployment.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect medical PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not call Hugging Face hosted inference.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Preflight Findings
+
+- Git status at the start of Phase 26 was clean.
+- `.env`, `.env.local`, `.vercel/*`, and PDF files are not tracked by Git.
+- `.env`, `.env.local`, `.vercel/`, and `data/Medical_book.pdf` are ignored.
+- Tracked-file secret-shaped scan passed.
+- `api.index` imports cleanly.
+- `python -m compileall` passed.
+- Default offline `pytest -q` passed.
+- Vercel Production environment variable names are present, including Strategy B hosted embedding variables. Vercel reported encrypted values only.
+- Vercel Preview environment variable name inspection still does not show `HF_TOKEN`.
+- `BUILD_STATE.md` records Deployment Phase 25 as `BLOCKED`, not `PASS`.
+- The required Phase 26 preflight condition "Preview deployment is PASS" is not satisfied.
+- Pinecone index/namespace vector count was not rechecked because the Production deployment phase is already blocked before external-service validation.
+
+## Files Changed In Deployment Phase 26
+
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 26
+
+- `git status --short --untracked-files=all`
+- `tail -n 260 BUILD_STATE.md`
+- `git ls-files .env .env.local '.vercel/*' 'data/*.pdf' 'data/*.PDF'`
+- `git check-ignore -v .env .env.local .vercel .vercel/project.json data/Medical_book.pdf || true`
+- `sed -n '1,120p' api/index.py`
+- `sed -n '1,220p' vercel.json`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env, .env.local, .vercel, .venv, and PDFs ... PY`
+- `vercel env ls preview --project medical-chatbot --no-color`
+- `.venv/bin/python - <<'PY' ... api.index import check ... PY`
+- `vercel env ls production --project medical-chatbot --no-color`
+- `.venv/bin/python - <<'PY' ... tracked-file secret-shaped scan ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 95 passed, 3 skipped, 16 subtests passed.
+- `api.index` import check: pass.
+- Tracked-file secret-shaped scan: pass.
+- `.env`/PDF tracking check: pass.
+- Production environment variable name inspection: pass, values remained encrypted.
+
+## Blockers
+
+- Phase 25 Preview deployment is not PASS.
+- Preview environment still lacks `HF_TOKEN`, so a verified Preview RAG smoke test cannot be completed.
+
+## Vercel Action Required
+
+- Add `HF_TOKEN` to the Vercel Preview environment.
+- Recommended for Preview clarity: add `EMBEDDINGS_PROVIDER=huggingface_api` and `HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`.
+- Retry Phase 25 and get a Preview PASS before running Production deployment.
+
+## User Action Required
+
+- Configure the missing Preview environment variable in Vercel. Do not paste secret values into chat or source files.
+
+## Next Expected Phase
+
+- Retry Phase 25 Preview deployment after Preview environment variables are complete.
+
+---
+
+## Deployment Phase 25 - Preview Blocker Diagnosis Retry
+
+Status: BLOCKED
+Completion timestamp: 2026-09-08 00:20:14 +06
+
+## Scope
+
+- Rechecked the Phase 25 Preview blocker only.
+- Did not modify Production.
+- Did not deploy Preview.
+- Did not deploy Production.
+- Did not run `store_index.py`.
+- Did not call OpenRouter, Pinecone, or Hugging Face hosted inference.
+- Did not print secret values.
+
+## Findings
+
+- Preview environment variable visibility now passes for Strategy B names.
+- `HF_TOKEN`, `EMBEDDINGS_PROVIDER`, `HUGGINGFACE_EMBEDDING_MODEL`, `HUGGINGFACE_TIMEOUT_SECONDS`, and `HUGGINGFACE_INFERENCE_PROVIDER` are visible to Preview with encrypted values only.
+- Vercel reports zero Preview deployments for the `medical-chatbot` project.
+- Because no Preview deployment exists, there is no current Preview deployment timestamp to compare against environment-variable creation time.
+- Because no Preview runtime exists, runtime receipt of `HF_TOKEN` cannot be verified yet.
+- Production deployments exist, but they were only listed for context and were not modified.
+
+## Files Changed In Diagnosis Retry
+
+- `BUILD_STATE.md`
+
+## Commands Run In Diagnosis Retry
+
+- `git status --short --untracked-files=all`
+- `tail -n 180 BUILD_STATE.md`
+- `vercel --version`
+- `test -f .vercel/project.json && printf 'vercel_linked=true\n' || printf 'vercel_linked=false\n'; git check-ignore -v .env .env.local .vercel .vercel/project.json || true`
+- `vercel env ls preview --project medical-chatbot --no-color`
+- `vercel env ls --project medical-chatbot --no-color`
+- `vercel ls medical-chatbot --environment preview --format json --no-color`
+- `vercel ls medical-chatbot --environment production --limit 5 --no-color`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- Preview env name visibility: pass, values remained encrypted.
+- Preview deployment existence check: pass, result count is zero.
+- Runtime receipt of `HF_TOKEN`: not verifiable because no Preview deployment exists.
+
+## Blockers
+
+- No Preview deployment exists yet. Phase 25 cannot be marked PASS until a Preview deployment is created and smoke-tested.
+
+## Vercel Action Required
+
+- Create a Preview deployment before retrying the Preview smoke checks.
+
+## User Action Required
+
+- None for environment-variable creation. The required Preview variable names are now visible.
+
+## Next Expected Phase
+
+- Retry Phase 25 Preview deployment creation and smoke testing.
+
+---
+
 ## Deployment Phase 25 - Vercel Preview Deployment
 
 Status: BLOCKED
