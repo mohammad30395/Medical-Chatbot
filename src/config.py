@@ -122,6 +122,12 @@ def _normalize_embeddings_provider(value: str) -> str:
     )
 
 
+def _default_embeddings_provider(mapping: Mapping[str, str | None]) -> str:
+    if is_vercel_environment(mapping):
+        return REMOTE_EMBEDDINGS_PROVIDER
+    return DEFAULT_EMBEDDINGS_PROVIDER
+
+
 @dataclass(frozen=True)
 class Settings:
     """Runtime settings loaded from environment variables."""
@@ -147,7 +153,7 @@ class Settings:
     def from_mapping(cls, mapping: Mapping[str, str | None]) -> "Settings":
         """Build settings from an environment-style mapping."""
         embeddings_provider = _normalize_embeddings_provider(
-            _get(mapping, "EMBEDDINGS_PROVIDER", DEFAULT_EMBEDDINGS_PROVIDER)
+            _get(mapping, "EMBEDDINGS_PROVIDER", _default_embeddings_provider(mapping))
         )
         flask_debug = (
             DEFAULT_FLASK_DEBUG

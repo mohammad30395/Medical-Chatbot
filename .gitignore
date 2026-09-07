@@ -20,6 +20,7 @@ __pycache__/
 .DS_Store
 .vscode/
 .idea/
+.vercel/
 
 # Generated/build artifacts
 build/

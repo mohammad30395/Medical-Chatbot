@@ -4558,3 +4558,210 @@ Completion timestamp: 2026-09-07 22:59:21 +06
 ## Next Expected Phase
 
 - None. Do not proceed to another deployment phase unless explicitly requested.
+
+---
+
+## Deployment Phase 25 - Vercel Preview Deployment
+
+Status: BLOCKED
+Completion timestamp: 2026-09-07 23:54:30 +06
+
+## Scope
+
+- Started Preview deployment preflight only.
+- Did not create a Preview deployment because required Preview runtime configuration is incomplete.
+- Did not create a Production deployment.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect medical PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not call Hugging Face hosted inference.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Preflight Findings
+
+- Git status before Preview deployment contained only existing local deployment-preparation changes:
+  - `.gitignore`
+  - `BUILD_STATE.md`
+  - `src/config.py`
+  - `tests/test_config.py`
+- `.env`, `.env.local`, `.vercel/`, and `data/Medical_book.pdf` are ignored.
+- No `.env`, `.env.local`, `.vercel/*`, or PDF files are tracked by Git.
+- Vercel CLI version: 58.0.0.
+- Local project is linked to Vercel project `medical-chatbot`.
+- Preview environment variable name inspection showed encrypted values only and did not print secret values.
+- Preview has Pinecone and OpenRouter variable names configured.
+- Preview is missing `HF_TOKEN`, which is required for Strategy B hosted Hugging Face query embeddings.
+- Because `HF_TOKEN` is missing in Preview, `/health` would report incomplete runtime configuration and a real `/get` request would not be a valid end-to-end Preview smoke test.
+- The Preview deployment was intentionally not created to avoid a known-failing deployment and unnecessary quota-consuming requests.
+
+## Files Changed In Deployment Phase 25
+
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 25
+
+- `git status --short --untracked-files=all`
+- `tail -n 220 BUILD_STATE.md`
+- `sed -n '1,220p' vercel.json`
+- `sed -n '1,80p' api/index.py`
+- `sed -n '1,220p' requirements-vercel.txt`
+- `git ls-files .env .env.local '.vercel/*' 'data/*.pdf' 'data/*.PDF'`
+- `git check-ignore -v .env .env.local .vercel .vercel/project.json data/Medical_book.pdf || true`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env, .env.local, .vercel, .venv, and PDFs ... PY`
+- `vercel env ls preview --project medical-chatbot --no-color`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 95 passed, 3 skipped, 16 subtests passed.
+- Secret-shaped scan: pass.
+- Git ignore check for `.env`, `.env.local`, `.vercel/`, and PDF: pass.
+- Preview environment variable name inspection: pass, values remained encrypted.
+
+## Blockers
+
+- Missing Vercel Preview environment variable: `HF_TOKEN`.
+- Recommended but default-backed Preview variable also absent: `HUGGINGFACE_EMBEDDING_MODEL`. The app can default this to `sentence-transformers/all-MiniLM-L6-v2`, but setting it explicitly in Vercel is clearer.
+- `EMBEDDINGS_PROVIDER` is not required after Phase 24 because Vercel defaults to hosted embeddings when `VERCEL=1`, but setting `EMBEDDINGS_PROVIDER=huggingface_api` explicitly in Vercel is still recommended for clarity.
+
+## Vercel Action Required
+
+- In Vercel Project -> Settings -> Environment Variables, add `HF_TOKEN` for the Preview environment.
+- Recommended for Preview clarity: add `EMBEDDINGS_PROVIDER=huggingface_api` and `HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`.
+- After adding or changing Preview environment variables, trigger a new Preview deployment.
+
+## User Action Required
+
+- Provide the missing `HF_TOKEN` through Vercel's encrypted environment variable UI or CLI. Do not put the value in source files or chat.
+
+## Next Expected Phase
+
+- Retry Phase 25 after the Preview environment variables are configured.
+
+---
+
+## Deployment Phase 24 - Vercel Local Validation
+
+Status: PASS
+Completion timestamp: 2026-09-07 23:51:06 +06
+
+## Scope
+
+- Validated Vercel's local project discovery and routing without creating a cloud deployment.
+- Preserved local `python app.py` behavior and the existing local Python 3.10 `.venv`.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect medical PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not stage or commit files.
+- Did not print API key values.
+
+## Findings
+
+- Vercel CLI version: 58.0.0.
+- Local project link was absent at the start of this phase and was created with `vercel link`.
+- Vercel local metadata was created under `.vercel/`; `.gitignore` now ignores `.vercel/`.
+- Vercel appended broad ignore rules during linking; `.gitignore` was normalized so `.env.example` remains trackable while `.env`, `.env.local`, `.vercel/`, and PDFs remain ignored.
+- Initial `vercel dev` attempts failed for Python routes because Vercel's local dev runner reused the project `.venv`, which is Python 3.10, while `vercel-runtime==0.16.0` contains Python 3.12 syntax.
+- Created an ignored `.vercel/dev-venv` with Python 3.12 for Vercel-local validation only. This does not change normal local development.
+- Static CSS routing worked throughout.
+- With the Python 3.12 Vercel-local validation venv active, Vercel-style routes worked:
+  - `GET /`: HTTP 200.
+  - `GET /health`: HTTP 200.
+  - `GET /static/style.css`: HTTP 200.
+  - `POST /get` with empty JSON message: HTTP 400.
+- A single real `/get` request was attempted before the Vercel environment marker was forced; it returned HTTP 500 because local `.env` did not include Strategy B hosted embedding variables.
+- Config was hardened so Vercel defaults to hosted Hugging Face query embeddings when `VERCEL=1` and `EMBEDDINGS_PROVIDER` is unset. Local non-Vercel behavior still defaults to local embeddings.
+- With `VERCEL=1`, `/health` correctly reports missing `HF_TOKEN` by name only in the local Vercel environment. No second real RAG request was made because the local Vercel environment did not have valid Strategy B secrets.
+- Logs showed no import errors, dependency errors, model-load errors, template/static path errors, `store_index.py` execution, or PDF indexing during the successful Vercel-local route checks.
+- The deployed runtime does not require the source medical PDF for normal requests; it queries Pinecone and uses hosted query embeddings.
+
+## Files Changed In Deployment Phase 24
+
+- `.gitignore`
+- `src/config.py`
+- `tests/test_config.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 24
+
+- `git status --short --untracked-files=all`
+- `sed -n '1,240p' BUILD_STATE.md`
+- `find .vercel -maxdepth 4 -name pyvenv.cfg -print -exec sed -n '1,80p' {} \;`
+- `find .vercel -maxdepth 3 -type d -print | sort | sed -n '1,120p'`
+- `rg -n --hidden --glob '!**/*.pyc' --glob '!**/__pycache__/**' '/opt/homebrew/Cellar/python@3.10|python3.10|Python 3.10|home = ' .vercel || true`
+- `mkdir -p /tmp/medical_chatbot_python312_shim && ln -sf "$(command -v python3.12)" /tmp/medical_chatbot_python312_shim/python && ln -sf "$(command -v python3.12)" /tmp/medical_chatbot_python312_shim/python3 && PATH="/tmp/medical_chatbot_python312_shim:$PATH" sh -c 'command -v python; python --version; command -v python3; python3 --version; command -v vercel; vercel --version'`
+- `vercel --version`
+- `vercel link --yes --project medical-chatbot --no-color`
+- `git check-ignore -v .vercel .vercel/project.json .env.local .env data/Medical_book.pdf || true`
+- `vercel dev --listen 127.0.0.1:3005 --yes --no-color`
+- `vercel dev --listen 127.0.0.1:3006 --yes --no-color`
+- `vercel dev --listen 127.0.0.1:3007 --yes --no-color`
+- `VERCEL=1 vercel dev --listen 127.0.0.1:3008 --yes --no-color`
+- Route probes for `GET /`, `GET /health`, `GET /static/style.css`, and empty `POST /get`.
+- One real local Vercel `/get` request before the config hardening; result was HTTP 500 due to missing local Strategy B hosted embedding configuration.
+- `sed -n '7280,7790p' /opt/homebrew/lib/node_modules/vercel/node_modules/@vercel/python/dist/index.js`
+- `sed -n '4840,5015p' /opt/homebrew/lib/node_modules/vercel/node_modules/@vercel/python/dist/index.js`
+- `sed -n '5060,5125p' /opt/homebrew/lib/node_modules/vercel/node_modules/@vercel/python/dist/index.js`
+- `sed -n '1,80p' .vercel/python/vc_init_dev.py 2>/dev/null || true`
+- `sed -n '1,320p' src/helper.py`
+- `sed -n '1,280p' src/remote_embeddings.py`
+- `sed -n '1,260p' src/pinecone_index.py`
+- `sed -n '1,180p' .env.example`
+- `sed -n '1,220p' docs/VERCEL_ENV.md`
+- `sed -n '1,260p' tests/test_deployment_config.py`
+- `sed -n '1,260p' tests/test_config.py`
+- `sed -n '1,220p' tests/test_vercel_entrypoint.py`
+- `.vercel/dev-venv/bin/python -m pip install -r requirements-vercel.txt`
+- `.vercel/dev-venv/bin/python -m pip install --target .vercel/python vercel-runtime==0.16.0`
+- `.venv/bin/pytest -q tests/test_config.py tests/test_app.py tests/test_vercel_entrypoint.py tests/test_deployment_config.py`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m pip check`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env, .env.local, .vercel, .venv, and PDFs ... PY`
+- `VIRTUAL_ENV="$PWD/.vercel/dev-venv" VERCEL=1 PATH="$PWD/.vercel/dev-venv/bin:$PATH" .vercel/dev-venv/bin/python - <<'PY' ... api.index import and route check ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- Vercel CLI version check: pass, 58.0.0.
+- Local Vercel project link: pass.
+- `.vercel/` ignore check: pass.
+- `GET /` through `vercel dev`: pass, HTTP 200.
+- `GET /health` through `vercel dev`: pass, HTTP 200.
+- Static CSS through `vercel dev`: pass, HTTP 200.
+- `POST /get` invalid input through `vercel dev`: pass, HTTP 400.
+- Vercel-style import under Python 3.12 validation venv: pass.
+- Focused tests: pass, 36 passed, 12 subtests passed.
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 95 passed, 3 skipped, 16 subtests passed.
+- `pip check`: pass, no broken requirements.
+- `git diff --check`: pass.
+- Secret-shaped scan: pass.
+
+## Blockers
+
+- None for Vercel local route discovery and deployment-specific code validation.
+- A real local `vercel dev` RAG request requires Strategy B hosted embedding variables locally, especially `HF_TOKEN`. Without that, `/health` correctly reports missing `HF_TOKEN` and real `/get` should not be retried.
+
+## Vercel Action Required
+
+- No production deployment was created in this phase.
+- Existing deployed production can remain unchanged if Vercel already has the Strategy B variables configured.
+- Redeploy only when you want the Phase 24 config hardening to be active in the cloud deployment.
+
+## User Action Required
+
+- For local `vercel dev` real RAG testing, provide `HF_TOKEN` and the Strategy B embedding variables through Vercel/local environment configuration without committing values.
+
+## Next Expected Phase
+
+- None. Do not proceed to another deployment phase unless explicitly requested.

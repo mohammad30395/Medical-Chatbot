@@ -209,6 +209,26 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.flask_host, "0.0.0.0")
         self.assertEqual(settings.flask_port, 9999)
 
+    def test_vercel_environment_defaults_to_remote_embeddings(self) -> None:
+        settings = load_settings(environ={"VERCEL": "1"})
+
+        self.assertEqual(settings.embeddings_provider, REMOTE_EMBEDDINGS_PROVIDER)
+        self.assertEqual(settings.missing_runtime_secret_names(), [
+            "PINECONE_API_KEY",
+            "OPENROUTER_API_KEY",
+            "HF_TOKEN",
+        ])
+
+    def test_explicit_local_embedding_provider_is_preserved_in_vercel(self) -> None:
+        settings = load_settings(
+            environ={
+                "VERCEL": "1",
+                "EMBEDDINGS_PROVIDER": "local",
+            }
+        )
+
+        self.assertEqual(settings.embeddings_provider, "local")
+
 
 if __name__ == "__main__":
     unittest.main()
