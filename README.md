@@ -275,3 +275,4 @@ Embeddings run locally with `sentence-transformers/all-MiniLM-L6-v2` for local d
 ## Why ChatOpenRouter Instead Of ChatOpenAI
 
 The project contract uses OpenRouter as the generation provider, so `src/rag.py` imports `ChatOpenRouter` from `langchain_openrouter`. It does not instantiate `ChatOpenAI` and does not read `OPENAI_API_KEY`. Keeping `OPENROUTER_MODEL` configurable lets the app adapt when OpenRouter's free model catalog changes.
+
