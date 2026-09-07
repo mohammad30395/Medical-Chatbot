@@ -9,6 +9,7 @@ from typing import Any
 from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.documents import Document
+from langchain_core.runnables import RunnablePassthrough
 from langchain_openrouter import ChatOpenRouter
 from langchain_pinecone import PineconeVectorStore
 
@@ -26,6 +27,7 @@ LLM_MAX_RETRIES = 0
 LLM_MAX_TOKENS = 64
 LLM_SMOKE_PROMPT = "Reply with exactly: OK"
 MAX_QUESTION_CHARS = 2000
+MAX_CONTEXT_CHARS_PER_DOCUMENT = 300
 EMERGENCY_RESPONSE = (
     "If this may be an emergency, seek urgent professional or emergency help now."
 )
@@ -157,7 +159,30 @@ def get_rag_chain(
     resolved_llm = llm or get_llm(settings=settings)
     resolved_retriever = retriever or get_retriever(settings=settings)
     question_answer_chain = create_stuff_documents_chain(resolved_llm, prompt)
-    return create_retrieval_chain(resolved_retriever, question_answer_chain)
+    limited_question_answer_chain = RunnablePassthrough.assign(
+        context=lambda inputs: limit_documents_for_llm(inputs.get("context", [])),
+    ) | question_answer_chain
+    return create_retrieval_chain(resolved_retriever, limited_question_answer_chain)
+
+
+def limit_documents_for_llm(
+    documents: list[Document],
+    *,
+    max_chars_per_document: int = MAX_CONTEXT_CHARS_PER_DOCUMENT,
+) -> list[Document]:
+    """Limit retrieved chunk text before it is sent to the LLM."""
+    limited_documents: list[Document] = []
+    for document in documents:
+        page_content = re.sub(r"\s+", " ", document.page_content).strip()
+        if len(page_content) > max_chars_per_document:
+            page_content = page_content[: max_chars_per_document - 3].rstrip() + "..."
+        limited_documents.append(
+            Document(
+                page_content=page_content,
+                metadata=dict(document.metadata),
+            )
+        )
+    return limited_documents
 
 
 def _extract_answer(chain_result: Any) -> str:

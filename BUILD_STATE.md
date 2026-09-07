@@ -2052,3 +2052,281 @@ Completion timestamp: 2026-09-07 11:32:02 +06
 ## Next Expected Phase
 
 - Phase 16, only when explicitly requested.
+
+---
+
+## Phase 16 - End-to-End Local Smoke Test
+
+Status: BLOCKED
+Completion timestamp: 2026-09-07 11:43:51 +06
+
+## Scope
+
+- Performed controlled end-to-end preflight.
+- Ran ordered compile and default pytest checks.
+- Started Flask locally on configured host/port.
+- Verified GET `/health`.
+- Verified GET `/`.
+- Sent one realistic medical question to POST `/get`.
+- Reproduced the failure once directly to identify root cause.
+- Stopped the Flask process cleanly.
+- Made the smallest local fix for the identified root cause.
+- Reran only affected RAG tests, then default pytest.
+- Did not exceed two OpenRouter requests.
+- Did not run the out-of-source/nonsense POST after quota was consumed.
+- Did not retry OpenRouter automatically.
+
+## Preflight Results
+
+- Virtual environment confirmed active: pass.
+- `.env` exists: pass, values not printed.
+- Medical PDF exists: pass, `data/Medical_book.pdf`.
+- OpenRouter model setting is non-empty: pass, value not printed.
+- Pinecone key field present: pass, value not printed.
+- OpenRouter key field present: pass, value not printed.
+- Pinecone index name: `medical-bot`.
+- Pinecone index ready: pass.
+- Pinecone index dimension: 384.
+- Pinecone index metric: cosine.
+- Configured namespace present: pass.
+- Configured namespace vector count: 5860.
+
+## Smoke Path Results
+
+- Step 1, `python -m compileall` on project source: pass.
+- Step 2, default `pytest -q`: pass, 62 passed, 3 skipped, 1 warning, 15 subtests passed.
+- Step 3, Flask local start: pass, `http://127.0.0.1:8080`.
+- Step 4, GET `/health`: pass, HTTP 200, no secret values.
+- Step 5, GET `/`: pass, HTTP 200, HTML loaded.
+- Step 6, POST realistic medical question to `/get`: failed with HTTP 503.
+- Reproduction, direct `answer_question('What is diabetes mellitus?')`: failed with sanitized `LLMError`.
+- Root cause: selected OpenRouter model rejected the RAG prompt because prompt token count was 594 and the model limit was 552.
+- Smallest fix made: cap retrieved document text sent into the LLM context to 300 characters per document while preserving retrieval `k=3` and metadata.
+- Affected tests after fix: pass.
+- Default `pytest -q` after fix: pass, 63 passed, 3 skipped, 1 warning, 15 subtests passed.
+- Local context-cap probe after fix: pass, capped length 300 and metadata preserved.
+- Step 7, POST out-of-source/nonsense question: not run because the two allowed OpenRouter requests were already consumed.
+- Step 8, Flask process stopped cleanly: pass.
+
+## Files Changed In Phase 16
+
+- `src/rag.py`
+- `tests/test_rag.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 16
+
+- `pwd && rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 180 BUILD_STATE.md`
+- `sed -n '1,220p' pytest.ini`
+- `git status --short --untracked-files=all`
+- `.venv/bin/python - <<'PY' ... confirm virtualenv and .env existence without values ... PY`
+- `find data -maxdepth 2 -type f \( -iname '*.pdf' -o -name '.gitkeep' \) -print | sort`
+- `.venv/bin/python - <<'PY' ... confirm non-secret config presence ... PY`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `.venv/bin/python - <<'PY' ... Pinecone index and namespace stats check ... PY`
+- `.venv/bin/python - <<'PY' ... reproduce namespace stats with object/dict-safe access ... PY`
+- `.venv/bin/python -m compileall app.py src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python app.py`
+- `curl -sS -o /tmp/medical_chatbot_phase16_health.json -w '%{http_code}\n' http://127.0.0.1:8080/health`
+- `curl -sS -o /tmp/medical_chatbot_phase16_home.html -w '%{http_code}\n' http://127.0.0.1:8080/`
+- `.venv/bin/python - <<'PY' ... inspect saved /health and / HTML responses ... PY`
+- `curl -sS --max-time 120 -X POST -H 'Content-Type: application/json' -d '{"message":"What is diabetes mellitus?"}' -o /tmp/medical_chatbot_phase16_answer_medical.json -w '%{http_code}\n' http://127.0.0.1:8080/get`
+- `.venv/bin/python - <<'PY' ... inspect sanitized /get failure response ... PY`
+- `.venv/bin/python - <<'PY' ... direct answer_question reproduction ... PY`
+- `.venv/bin/python -m py_compile src/rag.py tests/test_rag.py`
+- `.venv/bin/pytest -q tests/test_rag.py -k 'get_rag_chain or limit_documents_for_llm or prompt_injection'`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m compileall app.py src tests scripts store_index.py template.py`
+- `.venv/bin/python - <<'PY' ... local context-cap probe ... PY`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `.venv/bin/python -m pip check`
+- `git diff --stat`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `git diff --check`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' 'ChatOpenAI|OPENAI_API_KEY' app.py src tests scripts store_index.py template.py setup.py README.md .env.example templates static pytest.ini requirements.txt`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `tail -n 150 BUILD_STATE.md`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment inspected: pass.
+- Dependency changes made: none.
+- Preflight virtual environment check: pass.
+- Preflight `.env` existence check: pass, values not printed.
+- Preflight medical PDF check: pass.
+- Preflight Pinecone index contract: pass.
+- Preflight namespace vector count: pass, 5860.
+- Preflight OpenRouter model non-empty check: pass, value not printed.
+- `compileall` before smoke path: pass.
+- Default `pytest -q` before smoke path: pass, 62 passed, 3 skipped.
+- Flask startup: pass.
+- GET `/health`: pass.
+- GET `/`: pass.
+- POST realistic medical question: blocked by OpenRouter prompt token limit response.
+- Failure reproduced once: pass.
+- Root cause identified: prompt token count exceeded the selected model's 552-token limit.
+- Smallest local fix made: pass.
+- Affected tests after fix: pass, 3 passed.
+- Default `pytest -q` after fix: pass, 63 passed, 3 skipped.
+- `pip check`: pass.
+- `ChatOpenAI` / `OPENAI_API_KEY` scoped source scan: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, outside `.env`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifacts removed outside `.venv`: pass.
+- `git diff --check`: pass.
+- Flask process stopped cleanly: pass.
+
+## Unresolved Issues
+
+- Phase 16 end-to-end smoke remains blocked because the two allowed OpenRouter requests were consumed before the final smoke path could be rerun.
+- The context-cap fix has unit coverage but has not been verified with another live OpenRouter `/get` request due the explicit quota limit.
+- The out-of-source/nonsense POST was not run for the same quota reason.
+- Default pytest still emits the existing `langchain-community` deprecation warning from the PDF loader import.
+
+## Next Expected Phase
+
+- Retry Phase 16 final smoke only after explicit user approval for another controlled run with up to two OpenRouter requests.
+
+---
+
+## Phase 16 - Controlled End-to-End Local Smoke Test Retry
+
+Status: PASS
+Completion timestamp: 2026-09-07 11:58:52 +06
+
+## Scope
+
+- Treated the pasted Phase 16 prompt as approval to retry the controlled smoke test.
+- Re-inspected repository structure, `BUILD_STATE.md`, source files, tests, and configuration files.
+- Confirmed preflight requirements without printing secret values.
+- Ran the smoke path in the required order.
+- Used exactly two OpenRouter-backed POST `/get` requests:
+  - one realistic medical question.
+  - one out-of-source/nonsense question.
+- Did not run automatic retries.
+- Did not modify code during this retry.
+- Verified the previous context-cap fix against live `/get` behavior.
+- Stopped Flask cleanly.
+
+## Preflight Results
+
+- Python version: 3.10.21.
+- Virtual environment confirmed active: pass.
+- `.env` exists: pass, values not printed.
+- Required environment variables present and non-empty: pass.
+- `OPENROUTER_MODEL` present and non-empty: pass, value not printed.
+- Medical PDF exists in `data/`: pass, `data/Medical_book.pdf`.
+- Flask host: `127.0.0.1`.
+- Flask port: 8080.
+- Required imports available: pass.
+- Pinecone index name: `medical-bot`.
+- Pinecone index ready: pass.
+- Pinecone index dimension: 384.
+- Pinecone index metric: cosine.
+- Configured namespace present: pass.
+- Configured namespace vector count: 5860.
+- Configured port was free before Flask startup: pass.
+
+## Token Safety Check
+
+- Retrieved documents before OpenRouter call: 3.
+- Limited documents before OpenRouter call: 3.
+- Max context characters per document: 300.
+- Limited context characters: 903.
+- Estimated prompt tokens using `cl100k_base`: 370.
+- Estimated prompt tokens below previously observed 552-token limit: pass.
+- Retriever `k=3` preserved: pass.
+- Metadata limiting behavior preserved by existing tests: pass.
+
+## Smoke Path Results
+
+- Step 1, `python -m compileall` on project source: pass.
+- Step 2, default `pytest -q`: pass, 63 passed, 3 skipped, 1 warning, 15 subtests passed.
+- Step 3, Flask local start: pass, `http://127.0.0.1:8080`.
+- Step 4, GET `/health`: pass, HTTP 200, healthy status, no secret values.
+- Step 5, GET `/`: pass, HTTP 200, HTML loaded and header present.
+- Step 6, realistic medical POST `/get`: pass, HTTP 200.
+- Realistic medical response generated: pass.
+- Realistic medical response grounded indicator: answer mentions diabetes and does not dump raw context.
+- Step 7, out-of-source/nonsense POST `/get`: pass, HTTP 200.
+- Out-of-source fallback response: `I don't know based on the provided medical source.`
+- No fabricated nonsense answer: pass.
+- Step 8, Flask stopped cleanly: pass.
+
+## Files Changed In Phase 16 Retry
+
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 16 Retry
+
+- `sed -n '1,260p' /Users/macbook/.codex/attachments/db51f7e1-3643-4316-bfcb-8e9d5c38d8c4/pasted-text.txt`
+- `pwd && rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 180 BUILD_STATE.md`
+- `sed -n '1,260p' app.py`
+- `sed -n '1,320p' src/rag.py`
+- `sed -n '1,120p' src/prompt.py && sed -n '1,220p' src/config.py`
+- `sed -n '1,260p' tests/test_integration.py && sed -n '1,460p' tests/test_rag.py`
+- `.venv/bin/python - <<'PY' ... preflight virtualenv/config check without secret values ... PY`
+- `find data -maxdepth 2 -type f \( -iname '*.pdf' -o -name '.gitkeep' \) -print | sort`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `.venv/bin/python - <<'PY' ... import availability check ... PY`
+- `.venv/bin/python - <<'PY' ... Pinecone index contract and namespace vector count ... PY`
+- `.venv/bin/python - <<'PY' ... token safety check before OpenRouter ... PY`
+- `.venv/bin/python -m compileall app.py src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python app.py`
+- `curl -sS -o /tmp/medical_chatbot_phase16_retry_health.json -w '%{http_code}\n' http://127.0.0.1:8080/health`
+- `curl -sS -o /tmp/medical_chatbot_phase16_retry_home.html -w '%{http_code}\n' http://127.0.0.1:8080/`
+- `.venv/bin/python - <<'PY' ... inspect /health and / saved responses ... PY`
+- `curl -sS --max-time 120 -X POST -H 'Content-Type: application/json' -d '{"message":"What is diabetes mellitus?"}' -o /tmp/medical_chatbot_phase16_retry_medical.json -w '%{http_code}\n' http://127.0.0.1:8080/get`
+- `.venv/bin/python - <<'PY' ... inspect realistic medical answer safely ... PY`
+- `curl -sS --max-time 120 -X POST -H 'Content-Type: application/json' -d '{"message":"What color is the launch code for the imaginary planet Zorblox?"}' -o /tmp/medical_chatbot_phase16_retry_nonsense.json -w '%{http_code}\n' http://127.0.0.1:8080/get`
+- `.venv/bin/python - <<'PY' ... verify grounded fallback response ... PY`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `.venv/bin/python -m pip check`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `git diff --stat`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `git diff --check`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' 'ChatOpenAI|OPENAI_API_KEY' app.py src tests scripts store_index.py template.py setup.py README.md .env.example templates static pytest.ini requirements.txt`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `tail -n 170 BUILD_STATE.md`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, files, tests, and config inspected first: pass.
+- Virtual environment confirmed: pass.
+- `.env` exists and was not printed: pass.
+- Required env vars present: pass.
+- Medical PDF exists: pass.
+- Pinecone index `medical-bot` ready, 384d, cosine: pass.
+- Namespace contains vectors: pass, 5860.
+- OpenRouter model value non-empty: pass.
+- Token safety check before OpenRouter: pass.
+- `compileall`: pass.
+- Default `pytest -q`: pass, 63 passed, 3 skipped.
+- Flask startup on configured host/port: pass.
+- GET `/health`: pass.
+- GET `/`: pass.
+- Realistic POST `/get`: pass, HTTP 200, non-empty answer.
+- Out-of-source POST `/get`: pass, HTTP 200, grounded fallback returned.
+- OpenRouter request count: exactly 2.
+- No automatic retries: pass.
+- Flask stopped cleanly: pass.
+- `pip check`: pass.
+
+## Unresolved Issues
+
+- Default pytest still emits the existing `langchain-community` deprecation warning from the PDF loader import.
+- The source tree still contains uncommitted Phase 16 hardening changes from the prior blocked attempt in `src/rag.py` and `tests/test_rag.py`.
+
+## Next Expected Phase
+
+- Phase 17, only when explicitly requested.

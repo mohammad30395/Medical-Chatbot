@@ -6,7 +6,7 @@ import os
 import sys
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from langchain_core.documents import Document
@@ -21,6 +21,7 @@ from src.rag import (
     LLM_TEMPERATURE,
     LLM_TIMEOUT_SECONDS,
     LLMError,
+    MAX_CONTEXT_CHARS_PER_DOCUMENT,
     MAX_QUESTION_CHARS,
     PREVIEW_MAX_CHARS,
     QUESTION_TOO_LONG_MESSAGE,
@@ -31,6 +32,7 @@ from src.rag import (
     get_retriever,
     get_vector_store,
     is_emergency_like,
+    limit_documents_for_llm,
     normalize_question,
     print_retrieval_diagnostics,
     retrieval_previews,
@@ -264,7 +266,7 @@ class RagUnitTests(unittest.TestCase):
     @patch("src.rag.create_retrieval_chain", return_value=SimpleNamespace(name="rag"))
     @patch(
         "src.rag.create_stuff_documents_chain",
-        return_value=SimpleNamespace(name="qa"),
+        return_value=RunnableLambda(lambda inputs: "answer"),
     )
     def test_get_rag_chain_uses_tutorial_factories(
         self,
@@ -283,8 +285,23 @@ class RagUnitTests(unittest.TestCase):
         )
         mock_create_retrieval_chain.assert_called_once_with(
             retriever,
-            mock_create_stuff_documents_chain.return_value,
+            ANY,
         )
+
+    def test_limit_documents_for_llm_caps_content_and_preserves_metadata(self) -> None:
+        document = Document(
+            page_content=" ".join(["context"] * 100),
+            metadata={"source": "fixture.pdf", "page": 3},
+        )
+
+        limited = limit_documents_for_llm([document])
+
+        self.assertEqual(limited[0].metadata, document.metadata)
+        self.assertLessEqual(
+            len(limited[0].page_content),
+            MAX_CONTEXT_CHARS_PER_DOCUMENT,
+        )
+        self.assertNotEqual(limited[0].page_content, document.page_content)
 
     def test_answer_question_rejects_empty_input(self) -> None:
         with self.assertRaisesRegex(ValueError, "must not be empty"):
