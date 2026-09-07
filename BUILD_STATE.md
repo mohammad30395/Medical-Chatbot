@@ -4387,3 +4387,79 @@ Completion timestamp: 2026-09-07 22:47:24 +06
 ## Next Expected Phase
 
 - After redeploying this fix, run one deployed `/health` check and at most one deployed `/get` request.
+
+---
+
+## Deployment Phase 23 Retry 8 - Post-Fix Vercel Smoke Test
+
+Status: PASS
+Completion timestamp: 2026-09-07 22:52:16 +06
+
+## Scope
+
+- Resumed after the user reported the OpenRouter empty-content fix was redeployed.
+- Verified the production alias points to a newer Ready deployment.
+- Checked `/health` first.
+- Made exactly one deployed `/get` request.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not make repeated OpenRouter requests.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Deployment Findings
+
+- Production alias: `https://medical-chatbot-nine-topaz.vercel.app`
+- Direct deployment URL after latest redeploy: `https://medical-chatbot-98c6azhsi.vercel.app`
+- Deployment status: Ready.
+- Vercel build output reports Python function size: 50.45 MB.
+- Vercel production environment variable names remain present for Strategy B and OpenRouter.
+
+## Deployed Smoke Result
+
+- `GET /health`: HTTP 200, valid JSON, `runtime_configuration_present=true`, no secret-looking values exposed.
+- `POST /get`: HTTP 200, valid JSON, non-empty `answer`, no secret-looking values exposed.
+- The answer was not fully printed or logged; only a short preview was inspected.
+- This confirms the deployed Strategy B path works through Vercel, Hugging Face hosted embeddings, Pinecone retrieval, OpenRouter generation, and Flask JSON response handling.
+
+## Files Changed In Deployment Phase 23 Retry 8
+
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 23 Retry 8
+
+- `git status --short --untracked-files=all`
+- `tail -n 150 BUILD_STATE.md`
+- `vercel inspect medical-chatbot-nine-topaz.vercel.app --no-color`
+- `curl -sS -D /tmp/medical_chatbot_vercel_health8_headers.txt -o /tmp/medical_chatbot_vercel_health8.json https://medical-chatbot-nine-topaz.vercel.app/health`
+- `vercel env ls production --project medical-chatbot --no-color`
+- `curl -sS -D /tmp/medical_chatbot_vercel_get8_headers.txt -o /tmp/medical_chatbot_vercel_get8.json -X POST https://medical-chatbot-nine-topaz.vercel.app/get -H 'Content-Type: application/json' --data '{"message":"What are common symptoms of dengue?"}'`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py && .venv/bin/pytest -q`
+- `.venv/bin/python -m pip check`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 91 passed, 3 skipped, 16 subtests passed.
+- `pip check`: pass, no broken requirements.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- None for the controlled deployed smoke path.
+
+## Vercel Action Required
+
+- None.
+
+## Next Expected Phase
+
+- Deployment smoke test is complete. Do not proceed to another phase unless explicitly requested.
