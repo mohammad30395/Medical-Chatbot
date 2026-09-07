@@ -3,17 +3,23 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from langchain_core.documents import Document
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+from src.config import ConfigurationError, Settings, load_settings
+from src.helper_constants import (
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
+    EMBEDDING_MODEL,
+    EXPECTED_EMBEDDING_DIMENSION,
+)
+from src.remote_embeddings import HuggingFaceAPIEmbeddings
 
 
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 20
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-EXPECTED_EMBEDDING_DIMENSION = 384
+PyPDFLoader: Any | None = None
+RecursiveCharacterTextSplitter: Any | None = None
+HuggingFaceEmbeddings: Any | None = None
 
 
 class PDFLoadError(RuntimeError):
@@ -37,6 +43,35 @@ def _find_pdf_files(data_dir: Path) -> list[Path]:
     )
 
 
+def _get_pdf_loader_class() -> Any:
+    global PyPDFLoader
+    if PyPDFLoader is None:
+        from langchain_community.document_loaders import PyPDFLoader as loader_class
+
+        PyPDFLoader = loader_class
+    return PyPDFLoader
+
+
+def _get_text_splitter_class() -> Any:
+    global RecursiveCharacterTextSplitter
+    if RecursiveCharacterTextSplitter is None:
+        from langchain_text_splitters import (
+            RecursiveCharacterTextSplitter as splitter_class,
+        )
+
+        RecursiveCharacterTextSplitter = splitter_class
+    return RecursiveCharacterTextSplitter
+
+
+def _get_huggingface_embeddings_class() -> Any:
+    global HuggingFaceEmbeddings
+    if HuggingFaceEmbeddings is None:
+        from langchain_huggingface import HuggingFaceEmbeddings as embeddings_class
+
+        HuggingFaceEmbeddings = embeddings_class
+    return HuggingFaceEmbeddings
+
+
 def load_pdf_documents(data_dir: str | Path) -> list[Document]:
     """Load all PDFs from a data directory as LangChain documents."""
     resolved_data_dir = _resolve_data_dir(data_dir)
@@ -50,7 +85,7 @@ def load_pdf_documents(data_dir: str | Path) -> list[Document]:
     documents: list[Document] = []
     for pdf_file in pdf_files:
         try:
-            loaded_documents = PyPDFLoader(str(pdf_file)).load()
+            loaded_documents = _get_pdf_loader_class()(str(pdf_file)).load()
         except Exception as exc:
             raise PDFLoadError(f"Failed to load PDF '{pdf_file.name}'.") from exc
 
@@ -66,7 +101,7 @@ def split_documents(documents: list[Document]) -> list[Document]:
     if not documents:
         return []
 
-    splitter = RecursiveCharacterTextSplitter(
+    splitter = _get_text_splitter_class()(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
     )
@@ -84,9 +119,9 @@ def split_documents(documents: list[Document]) -> list[Document]:
     return chunks
 
 
-def get_embeddings() -> HuggingFaceEmbeddings:
+def _get_local_embeddings() -> Any:
     """Create local CPU Hugging Face embeddings for retrieval."""
-    return HuggingFaceEmbeddings(
+    return _get_huggingface_embeddings_class()(
         model=EMBEDDING_MODEL,
         model_kwargs={"device": "cpu"},
         encode_kwargs={"normalize_embeddings": True},
@@ -94,12 +129,51 @@ def get_embeddings() -> HuggingFaceEmbeddings:
     )
 
 
-def download_hugging_face_embeddings() -> HuggingFaceEmbeddings:
+def _get_remote_embeddings(settings: Settings) -> HuggingFaceAPIEmbeddings:
+    if not settings.hf_token.strip():
+        raise ConfigurationError(
+            "Missing required environment variable: HF_TOKEN. "
+            "Set HF_TOKEN in .env locally or as a Vercel environment variable."
+        )
+    return HuggingFaceAPIEmbeddings(
+        api_key=settings.hf_token,
+        model=settings.huggingface_embedding_model,
+        provider=settings.huggingface_inference_provider,
+        timeout_seconds=settings.huggingface_timeout_seconds,
+    )
+
+
+def get_embeddings(
+    *,
+    settings: Settings | None = None,
+    provider: str | None = None,
+) -> Any:
+    """Create embeddings for the selected runtime strategy."""
+    selected_provider = provider
+    resolved_settings = settings
+    if selected_provider is None:
+        selected_provider = (
+            resolved_settings.embeddings_provider
+            if resolved_settings is not None
+            else "local"
+        )
+
+    if selected_provider == "local":
+        return _get_local_embeddings()
+    if selected_provider == "huggingface_api":
+        resolved_settings = resolved_settings or load_settings()
+        return _get_remote_embeddings(resolved_settings)
+    raise ConfigurationError(
+        "Invalid EMBEDDINGS_PROVIDER value. Expected local or huggingface_api."
+    )
+
+
+def download_hugging_face_embeddings() -> Any:
     """Tutorial-compatible alias for creating Hugging Face embeddings."""
     return get_embeddings()
 
 
-def verify_embedding_dimension(embeddings: HuggingFaceEmbeddings) -> int:
+def verify_embedding_dimension(embeddings: Any) -> int:
     """Verify the embedding model returns the expected vector dimension."""
     vector = embeddings.embed_query("health information retrieval test")
     dimension = len(vector)

@@ -1,0 +1,33 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Local Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local/editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Medical source documents stay local; deployed app uses Pinecone.
+data/*.pdf
+data/*.PDF
+
+# Test and research files are not needed by the deployed Flask function.
+tests/
+research/

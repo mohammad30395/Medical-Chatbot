@@ -6,6 +6,7 @@ from unittest.mock import patch
 from src.config import ConfigurationError, Settings
 from src.pinecone_index import PineconeIndexError
 from src.rag import LLMError
+from src.remote_embeddings import RemoteEmbeddingError
 
 from app import app
 from src.rag import MAX_QUESTION_CHARS, QUESTION_TOO_LONG_MESSAGE
@@ -116,6 +117,20 @@ class FlaskBackendTests(unittest.TestCase):
         self.assertIn("knowledge index", response.get_json()["error"])
         mock_answer_question.assert_called_once_with("hello")
 
+    @patch(
+        "app.answer_question",
+        side_effect=RemoteEmbeddingError("Hugging Face unavailable"),
+    )
+    def test_post_get_remote_embedding_failure_returns_503(
+        self,
+        mock_answer_question,
+    ) -> None:
+        response = self.client.post("/get", json={"message": "hello"})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("embedding service", response.get_json()["error"])
+        mock_answer_question.assert_called_once_with("hello")
+
     @patch("app.answer_question", side_effect=RuntimeError("raw failure"))
     def test_post_get_unexpected_failure_returns_generic_500(self, mock_answer_question) -> None:
         response = self.client.post("/get", json={"message": "hello"})
@@ -143,6 +158,29 @@ class FlaskBackendTests(unittest.TestCase):
         self.assertEqual(payload["status"], "ok")
         self.assertTrue(payload["runtime_configuration_present"])
         self.assertEqual(payload["missing"], [])
+        self.assertNotIn("pinecone-secret", response.get_data(as_text=True))
+        self.assertNotIn("openrouter-secret", response.get_data(as_text=True))
+        mock_load_settings.assert_called_once_with(create_env_file=False)
+
+    @patch(
+        "app.load_settings",
+        return_value=Settings(
+            pinecone_api_key="pinecone-secret",
+            openrouter_api_key="openrouter-secret",
+            embeddings_provider="huggingface_api",
+            hf_token="",
+        ),
+    )
+    def test_health_reports_missing_hf_token_for_remote_embeddings(
+        self,
+        mock_load_settings,
+    ) -> None:
+        response = self.client.get("/health")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertFalse(payload["runtime_configuration_present"])
+        self.assertEqual(payload["missing"], ["HF_TOKEN"])
         self.assertNotIn("pinecone-secret", response.get_data(as_text=True))
         self.assertNotIn("openrouter-secret", response.get_data(as_text=True))
         mock_load_settings.assert_called_once_with(create_env_file=False)

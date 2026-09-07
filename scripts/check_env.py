@@ -12,16 +12,20 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import REQUIRED_ENV_VARS
+from src.config import DEPLOYMENT_ENV_VARS, REQUIRED_ENV_VARS
 
 
 REQUIRED_PROJECT_FILES = (
     "app.py",
+    "api/__init__.py",
+    "api/index.py",
     "store_index.py",
     "README.md",
     "requirements.txt",
+    "requirements-vercel.txt",
     "requirements.lock.txt",
     ".env.example",
+    "vercel.json",
     "src/config.py",
     "src/helper.py",
     "src/pinecone_index.py",
@@ -29,6 +33,7 @@ REQUIRED_PROJECT_FILES = (
     "src/prompt.py",
     "templates/chat.html",
     "static/style.css",
+    "public/static/style.css",
 )
 SECRET_ENV_VARS = {"PINECONE_API_KEY", "OPENROUTER_API_KEY"}
 
@@ -100,6 +105,9 @@ def check_env_names(project_root: Path = PROJECT_ROOT) -> list[CheckResult]:
     ]
 
     missing_example = [key for key in REQUIRED_ENV_VARS if key not in example_keys]
+    missing_deployment_example = [
+        key for key in DEPLOYMENT_ENV_VARS if key not in example_keys
+    ]
     results.append(
         CheckResult(
             name=".env.example keys",
@@ -107,6 +115,15 @@ def check_env_names(project_root: Path = PROJECT_ROOT) -> list[CheckResult]:
             detail="all required names present"
             if not missing_example
             else "missing: " + ", ".join(missing_example),
+        )
+    )
+    results.append(
+        CheckResult(
+            name=".env.example deployment keys",
+            passed=not missing_deployment_example,
+            detail="all deployment names present"
+            if not missing_deployment_example
+            else "missing: " + ", ".join(missing_deployment_example),
         )
     )
 

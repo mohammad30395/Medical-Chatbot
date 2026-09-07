@@ -6,6 +6,8 @@ This is a local Flask medical-information chatbot that answers questions using r
 
 The app loads legally obtained medical PDFs, splits them into small chunks, embeds those chunks locally with `sentence-transformers/all-MiniLM-L6-v2`, stores vectors in Pinecone, retrieves the top 3 matching chunks, and sends only those retrieved chunks to an OpenRouter chat model.
 
+For Vercel deployment, local PDF indexing still happens before deployment. The deployed app queries the already-indexed Pinecone namespace and uses hosted Hugging Face feature extraction for query embeddings so Vercel does not need to install or download the local `torch`/`sentence-transformers` model stack.
+
 ## Architecture Diagram
 
 ```text
@@ -21,7 +23,9 @@ PDF -> loader -> 500/20 chunks -> all-MiniLM-L6-v2 -> Pinecone -> top-3 retrieve
 ├── template.py
 ├── setup.py
 ├── requirements.txt
+├── requirements-vercel.txt
 ├── requirements.lock.txt
+├── vercel.json
 ├── pytest.ini
 ├── BUILD_STATE.md
 ├── README.md
@@ -31,6 +35,7 @@ PDF -> loader -> 500/20 chunks -> all-MiniLM-L6-v2 -> Pinecone -> top-3 retrieve
 ├── research/
 │   └── trials.ipynb
 ├── scripts/
+│   ├── check_env.py
 │   └── smoke_test.py
 ├── src/
 │   ├── __init__.py
@@ -39,7 +44,11 @@ PDF -> loader -> 500/20 chunks -> all-MiniLM-L6-v2 -> Pinecone -> top-3 retrieve
 │   ├── indexing.py
 │   ├── pinecone_index.py
 │   ├── prompt.py
+│   ├── remote_embeddings.py
 │   └── rag.py
+├── public/
+│   └── static/
+│       └── style.css
 ├── static/
 │   └── style.css
 ├── templates/
@@ -135,6 +144,11 @@ Then fill in only your own secret values. Do not commit `.env`.
 | `FLASK_PORT` | Flask port | `8080` |
 | `FLASK_DEBUG` | Flask debug mode | `false` |
 | `DATA_DIR` | PDF input directory | `data` |
+| `EMBEDDINGS_PROVIDER` | Query embedding provider | `local`; use `huggingface_api` on Vercel |
+| `HF_TOKEN` | Hugging Face hosted inference token | Required only when `EMBEDDINGS_PROVIDER=huggingface_api` |
+| `HUGGINGFACE_EMBEDDING_MODEL` | Hosted query embedding model | `sentence-transformers/all-MiniLM-L6-v2` |
+| `HUGGINGFACE_INFERENCE_PROVIDER` | Hugging Face inference provider | `hf-inference` |
+| `HUGGINGFACE_TIMEOUT_SECONDS` | Hosted embedding timeout | `15` |
 
 ## Place The Medical PDF
 
@@ -234,6 +248,10 @@ OpenRouter free model unavailable: `openrouter/free` is configurable because the
 
 Sentence-transformer first-download delay: the first call to local embeddings may download `sentence-transformers/all-MiniLM-L6-v2` and can take time depending on internet speed and disk performance.
 
+Vercel hosted embedding setup: set `EMBEDDINGS_PROVIDER=huggingface_api` and configure `HF_TOKEN` in Vercel project environment variables. Do not expose this token to browser JavaScript.
+
+Vercel dependency size: Vercel installs from `requirements-vercel.txt` through `vercel.json`, avoiding the local `torch` and `sentence-transformers` packages in the deployed runtime.
+
 ## Security
 
 Never commit `.env`. Commit only `.env.example`.
@@ -252,7 +270,7 @@ If a user describes a possible emergency, the app should give a short urgent-car
 
 This project does not require the paid OpenAI API and does not use `OPENAI_API_KEY`.
 
-Embeddings run locally with `sentence-transformers/all-MiniLM-L6-v2`. OpenRouter is used for the chat model through `ChatOpenRouter`; free OpenRouter models are rate-limited, not unlimited. Pinecone Starter limits can change, including supported cloud/region options and usage quotas.
+Embeddings run locally with `sentence-transformers/all-MiniLM-L6-v2` for local development and indexing. Vercel query embeddings use Hugging Face hosted inference when `EMBEDDINGS_PROVIDER=huggingface_api`. OpenRouter is used for the chat model through `ChatOpenRouter`; free OpenRouter models are rate-limited, not unlimited. Pinecone Starter limits can change, including supported cloud/region options and usage quotas.
 
 ## Why ChatOpenRouter Instead Of ChatOpenAI
 

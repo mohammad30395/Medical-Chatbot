@@ -2572,6 +2572,141 @@ python store_index.py --ingest
 
 ---
 
+## Deployment Phase 19 - Vercel Deployment Preparation
+
+Status: PASS
+Completion timestamp: 2026-09-07 15:31:52 +06
+
+## Scope
+
+- Prepared the existing Flask medical RAG app for Vercel deployment without changing local `python app.py` behavior.
+- Preserved OpenRouter and Pinecone providers.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or modify the source medical PDF.
+- Did not delete or recreate the Pinecone index.
+- Did not add `vercel.json` because Vercel's current Flask/Python docs support root `app.py` with a top-level `app`.
+- Did not print or expose API keys.
+- Did not stage or commit files.
+
+## Verified Vercel Behavior
+
+- Vercel docs checked on 2026-09-07.
+- Vercel Flask docs state that Vercel looks for a `Flask` instance named `app` at supported entrypoints.
+- Vercel Python runtime docs state supported entrypoint files include root `app.py`, and the top-level name should be `app` for Flask.
+- Vercel docs state Flask static assets should use `public/**` instead of relying on Flask's `app.static_folder`.
+- Vercel docs state Flask apps deploy as a single Vercel Function with standard bundle size limits.
+
+## Deployment Readiness
+
+- Root `app.py` import: pass, top-level `app` is a Flask instance.
+- Local app import did not call Pinecone or OpenRouter: pass.
+- Simulated Vercel import with placeholder environment variables: pass.
+- Simulated Vercel `/health`: pass, HTTP 200 and secret-safe output.
+- Simulated Vercel `/`: pass, HTTP 200.
+- Local `/static/style.css`: pass, HTTP 200.
+- Vercel public stylesheet mirror: pass, `public/static/style.css` matches `static/style.css`.
+- No `vercel.json`: pass, not required by verified Vercel entrypoint rules.
+- `.vercelignore`: pass, excludes `.env`, `.env.*`, `.venv/`, caches, tests, research, and `data/*.pdf`.
+- `load_settings()` on Vercel: pass, reads platform environment variables and does not create `.env`.
+
+## Files Changed In Deployment Phase 19
+
+- `.vercelignore`
+- `public/static/style.css`
+- `src/config.py`
+- `tests/test_config.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 19
+
+- `pwd; git status --short --untracked-files=all`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 220 BUILD_STATE.md`
+- `sed -n '1,220p' app.py; sed -n '1,240p' src/config.py; sed -n '1,220p' requirements.txt`
+- Official Vercel docs lookup for Flask/Python runtime behavior.
+- `sed -n '1,260p' templates/chat.html; sed -n '1,260p' static/style.css`
+- `test -f vercel.json && sed -n '1,200p' vercel.json || printf 'vercel.json missing\n'; test -f .vercelignore && sed -n '1,200p' .vercelignore || printf '.vercelignore missing\n'; test -d public && find public -maxdepth 3 -type f -print | sort || printf 'public missing\n'`
+- `.venv/bin/python - <<'PY' ... Flask import and routes check ... PY`
+- `rg -n 'store_index|ingest|Pinecone|OpenRouter|OPENROUTER_API_KEY|PINECONE_API_KEY|static/style.css|url_for' app.py templates static README.md .env.example src scripts tests setup.py requirements.txt`
+- `wc -l static/style.css; sed -n '1,320p' static/style.css`
+- `git ls-files .env 'data/*.pdf' 'data/*.PDF' static/style.css templates/chat.html app.py requirements.txt; git check-ignore .env data/Medical_book.pdf .venv .pytest_cache __pycache__ 2>/dev/null || true`
+- `rg -n '^Flask==|^flask$|^sentence-transformers$|^langchain|^pinecone|^python-dotenv$|^pypdf$|^pytest$|^langchain-openrouter$|^langchain-pinecone$' requirements.txt requirements.lock.txt`
+- `mkdir -p public/static && cp static/style.css public/static/style.css && cmp -s static/style.css public/static/style.css && printf 'public static CSS mirror matches\n'`
+- `.venv/bin/pytest -q tests/test_config.py tests/test_app.py tests/test_check_env_script.py`
+- `.venv/bin/python - <<'PY' ... verify Vercel settings do not create .env ... PY`
+- `VERCEL=1 PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter .venv/bin/python - <<'PY' ... Vercel import, /health, /, and /static/style.css check ... PY`
+- `cmp -s static/style.css public/static/style.css && printf 'public static CSS mirror matches\n'; test ! -f vercel.json && printf 'vercel.json not needed\n'`
+- `.venv/bin/python -m compileall app.py src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python - <<'PY' ... dependency/import sanity check ... PY`
+- `.venv/bin/python -m pip check`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `.venv/bin/python app.py`
+- `curl -sS -o /tmp/medical_chatbot_vercel_prep_health.json -w '%{http_code}\n' http://127.0.0.1:8080/health`
+- `curl -sS -o /tmp/medical_chatbot_vercel_prep_home.html -w '%{http_code}\n' http://127.0.0.1:8080/`
+- `curl -sS -o /tmp/medical_chatbot_vercel_prep_style.css -w '%{http_code}\n' http://127.0.0.1:8080/static/style.css`
+- `.venv/bin/python - <<'PY' ... inspect saved route responses for secret-safe expected markers ... PY`
+- `du -sh .venv/lib/python3.10/site-packages/torch .venv/lib/python3.10/site-packages/transformers .venv/lib/python3.10/site-packages/sentence_transformers 2>/dev/null || true; find .venv/lib/python3.10/site-packages -maxdepth 1 -name 'nvidia*' -exec du -sh {} + 2>/dev/null || true`
+- `sed -n '1,220p' .vercelignore; test ! -f vercel.json && printf 'vercel.json absent\n'; cmp -s static/style.css public/static/style.css && printf 'public static CSS mirror matches\n'`
+- `git ls-files .env '.env*' 'data/*.pdf' 'data/*.PDF' public/static/style.css .vercelignore; git check-ignore .env data/Medical_book.pdf .venv .pytest_cache __pycache__ 2>/dev/null || true`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan for tracked and untracked non-ignored files ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'; git status --short --untracked-files=all; git diff --cached --name-only; lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+
+## Tests and Acceptance Checks
+
+- Repository, `BUILD_STATE.md`, `app.py`, requirements, entrypoint, and environment handling inspected first: pass.
+- Flask import by Vercel-compatible entrypoint: pass.
+- Required dependencies exist in `requirements.txt`: pass.
+- No `vercel.json` added: pass, verified not needed for root `app.py`.
+- Vercel static asset mirror added: pass.
+- `.vercelignore` protects `.env` and `data/*.pdf`: pass.
+- Vercel runtime env loading does not create `.env`: pass.
+- `python -m compileall`: pass.
+- `pytest -q`: pass, 68 passed, 3 skipped, 1 warning, 16 subtests passed.
+- Dependency/import sanity: pass.
+- `pip check`: pass.
+- Local Flask startup: pass.
+- GET `/health`: pass, HTTP 200.
+- GET `/`: pass, HTTP 200.
+- GET `/static/style.css`: pass, HTTP 200.
+- OpenRouter calls: none in deployment-prep tests.
+- Pinecone calls: none in deployment-prep tests.
+- Git staging: pass, no files staged.
+
+## Deployment URLs
+
+- None. No deployment was performed in this phase.
+
+## Blockers and Risks
+
+- Manual Vercel environment variable configuration is required before deployment can run.
+- Vercel standard Flask function bundle limit is documented as 500MB. Local installed package footprint measured about 544M for `torch`, 56M for `transformers`, and 4.8M for `sentence_transformers`, before any Hugging Face model cache. The actual Vercel build may require Large Functions/Fluid compute capacity, a dependency strategy change, or a later architecture change if the build exceeds platform limits.
+- Source medical PDFs should stay out of Vercel. The deployed app is expected to query the already-indexed Pinecone namespace.
+- OpenRouter free models remain rate-limited and availability can change.
+
+## Vercel Action Required
+
+- In the Vercel project dashboard, set these server-side Environment Variables for the target deployment environments without exposing them to browser JavaScript:
+  - `PINECONE_API_KEY`
+  - `PINECONE_INDEX_NAME=medical-bot`
+  - `PINECONE_CLOUD=aws`
+  - `PINECONE_REGION=us-east-1`
+  - `PINECONE_NAMESPACE=medical-chatbot-v1`
+  - `OPENROUTER_API_KEY`
+  - `OPENROUTER_MODEL=openrouter/free` or another valid OpenRouter model ID
+  - `FLASK_HOST=127.0.0.1`
+  - `FLASK_PORT=8080`
+  - `FLASK_DEBUG=false`
+  - `DATA_DIR=data`
+- Verify the Vercel build output for Python function bundle size. If it exceeds the standard limit, enable the appropriate Vercel capacity option or request a later deployment phase to move query embeddings away from local PyTorch.
+
+## Next Expected Phase
+
+- Vercel deployment attempt, only when explicitly requested.
+
+---
+
 ## Post-Phase Fix - OpenRouter Model Configuration Retry
 
 Status: PASS
@@ -2802,3 +2937,681 @@ Completion timestamp: 2026-09-07 12:31:59 +06
 ## Next Expected Phase
 
 - No next build phase specified. Await explicit user direction.
+
+---
+
+## Deployment Phase 20 - Vercel Compatibility Audit
+
+Status: BLOCKED for standard Vercel deployment; audit completed.
+Completion timestamp: 2026-09-07 16:38:59 +06
+
+## Scope
+
+- Audited Vercel compatibility for the existing Flask medical RAG app.
+- Did not deploy.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect full PDF content.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not change application architecture.
+- Did not add `vercel.json`.
+- Did not add `api/index.py`.
+- Did not print API key values.
+
+## Repository And Entrypoint Findings
+
+- `app.py` defines a top-level Flask object: `app = Flask(__name__)`.
+- Flask routes remain `/`, `/get`, `/health`, and `/static/<path:filename>`.
+- Heavy runtime components are initialized lazily enough that importing `app.py` does not call OpenRouter or Pinecone.
+- `store_index.py` is a manual CLI entrypoint only and is not imported by `app.py`.
+- `.env` is ignored and `.vercelignore` exists.
+- `public/static/style.css` exists and matches `static/style.css`, which aligns with Vercel static asset guidance while keeping local Flask behavior.
+- `vercel.json` is currently absent. No audit-only evidence requires adding it yet.
+
+## Verified Vercel Assumptions
+
+- Vercel's Python runtime supports WSGI/ASGI applications and detects Flask from supported dependencies and entrypoints.
+- Vercel supports top-level `app` in root `app.py`; this repository already matches that pattern.
+- `api/index.py` can expose a top-level `app` for file-based Python functions, but Vercel's framework preset takes precedence for detected Flask projects, so adding `api/index.py` is not required for this repository at this phase.
+- Current Vercel Python versions are 3.12 by default, with 3.13 and 3.14 also available.
+- A Python 3.12 Linux dry-run dependency resolution succeeded from `requirements.txt`.
+- The repository's `setup.py` declares `python_requires=">=3.10,<3.13"`, so Python 3.12 is compatible but Python 3.13/3.14 should not be selected without a later compatibility pass.
+- Vercel's standard Python function bundle size limit is 500 MB uncompressed. Large Functions can support larger Python bundles only when enabled and eligible.
+
+## Evidence
+
+- Local Flask import sanity:
+  - app type: Flask.
+  - routes: `/`, `/get`, `/health`, `/static/<path:filename>`.
+  - local defaults: host `127.0.0.1`, port `8080`, debug `False`.
+- Runtime constants:
+  - embedding model: `sentence-transformers/all-MiniLM-L6-v2`.
+  - embedding dimension: `384`.
+  - retriever k: `3`.
+  - LLM max tokens: `48`.
+  - per-document context cap: `300` characters.
+- Installed package footprint:
+  - local `torch`: 544 MB.
+  - local `transformers`: 56 MB.
+  - local `sentence_transformers`: 4.8 MB.
+- Lockfile contains `sentence-transformers==6.0.1`, `torch==2.14.0`, `pinecone==7.3.0`, and `langchain-openrouter==0.2.8`.
+- Lockfile does not contain obsolete `pinecone-client`.
+
+## Compatibility Table
+
+| Component | Current behavior | Vercel risk | Required change | Can remain unchanged |
+| --- | --- | --- | --- | --- |
+| Flask entrypoint | Root `app.py` exports `app` | Low | None for framework-preset deployment | Yes |
+| `api/index.py` | Not present | Low | Not required unless a later phase chooses file-based routing | Yes |
+| `vercel.json` | Not present | Medium if function config/exclusions become necessary | Add later only if configuring function exclusions, duration, memory, or routing | Yes for audit |
+| Python version | Local venv is Python 3.10; `setup.py` allows `<3.13` | Medium | Use Vercel Python 3.12, not 3.13/3.14 without retesting | Local remains unchanged |
+| Runtime dependencies | `requirements.txt` includes Flask, LangChain, Pinecone, OpenRouter, sentence-transformers | High because embedding dependencies are large | Strategy B should remove local embedding stack from Vercel runtime or isolate it outside request runtime | Core local requirements remain unchanged until deployment adaptation |
+| sentence-transformers / torch | Query embeddings run locally on CPU | High; `torch` alone measured 544 MB locally, above standard 500 MB Python function limit | Move query embeddings out of Vercel runtime for standard deployment, or explicitly opt into Large Functions with known cold-start risk | Local behavior remains unchanged |
+| Model download | First query can trigger local Hugging Face model download/cache | High; cold start and non-persistent cache risk | Do not rely on model download at serverless request time | Local behavior remains unchanged |
+| Hugging Face cache | Local disk cache expected | High; serverless filesystem/cache persistence is not guaranteed as an app contract | Use external embedding path for deployed query embeddings | Local cache remains unchanged |
+| Cold start latency | Imports include LangChain and local embedding libraries | Medium to high | Keep deployment runtime lighter in Strategy B | Local imports remain unchanged |
+| Request duration | Retrieval, local embedding, Pinecone, OpenRouter all in one request | Medium | Remove local embedding compute from Vercel request path or configure function limits if intentionally using Strategy A | Flask route contract remains unchanged |
+| Memory usage | Local embedding stack loads model/runtime in process | High on Hobby 2 GB if multiple cold starts/concurrency occur | Strategy B preferred | Local behavior remains unchanged |
+| OpenRouter | Called only from `/get` through `ChatOpenRouter` | Medium due free route quota/model availability | Configure Vercel env vars; keep one LLM request per user request | Provider remains OpenRouter |
+| Pinecone | Queried at runtime, indexing is manual | Medium due network latency/errors | Configure Vercel env vars; keep index pre-built | Pinecone remains vector store |
+| `store_index.py` | Manual CLI only | Low | Do not run during Vercel build/import/startup/request | Yes |
+| Local PDF/filesystem | PDF is used for indexing, not runtime RAG after Pinecone indexing | Low if not uploaded | Do not upload `data/*.pdf`; rely on existing Pinecone namespace | Yes |
+| `.env` vs Vercel env vars | Local uses `.env`; Vercel should use project env vars | Medium | Set Vercel env vars manually; keep `.env` ignored | Local `.env` remains unchanged |
+| Hard-coded localhost | Default config uses `127.0.0.1`; browser fetch uses relative `/get` | Low | No change for deployed request flow | Yes |
+| Flask debug | Default `False` | Low | Ensure Vercel `FLASK_DEBUG=false` or unset | Yes |
+| Long-lived process assumptions | Lazy globals may persist but are not required for correctness | Medium | Avoid relying on persistent model cache or process memory in Strategy B | Local behavior remains unchanged |
+
+## Selected Deployment Strategy
+
+- Selected Strategy B: Flask UI/RAG orchestration on Vercel, but query embeddings moved out of the Vercel runtime.
+- Strategy A, full Flask RAG on Vercel with local query embeddings, is impractical for standard Vercel because the measured local `torch` package alone exceeds the 500 MB standard Python function limit before the rest of the app or model cache is counted.
+- Strategy A might be explored only with explicit Large Functions configuration and acceptance of cold-start/model-cache risk, but it is not the safest default deployment path.
+- Strategy B is not implemented in this phase.
+
+## External Sources Checked
+
+- Vercel Python Runtime: https://vercel.com/docs/functions/runtimes/python
+- Vercel Python `/api` directory behavior: https://vercel.com/docs/functions/runtimes/python/api-directory
+- Vercel Flask guide: https://vercel.com/docs/frameworks/backend/flask
+- Vercel Functions limits: https://vercel.com/docs/functions/limitations
+
+## Files Changed In Phase 20
+
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 20
+
+- `git status --short --untracked-files=all`
+- `tail -n 220 BUILD_STATE.md`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `sed -n '1,260p' app.py`
+- `sed -n '1,320p' src/config.py`
+- `sed -n '1,360p' src/rag.py`
+- `sed -n '1,280p' src/helper.py`
+- `sed -n '1,360p' store_index.py`
+- `sed -n '1,280p' src/pinecone_index.py`
+- `sed -n '1,180p' requirements.txt && sed -n '1,260p' setup.py && test -f vercel.json && sed -n '1,160p' vercel.json || true`
+- `du -sh .venv/lib/python3.10/site-packages/torch .venv/lib/python3.10/site-packages/transformers .venv/lib/python3.10/site-packages/sentence_transformers .venv/lib/python3.10/site-packages/langchain* 2>/dev/null || true`
+- `.venv/bin/python -m compileall app.py src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python - <<'PY' ... Flask/import/runtime constant sanity check ... PY`
+- `.venv/bin/python - <<'PY' ... lockfile package check ... PY`
+- `.venv/bin/python -m pip install --dry-run --only-binary=:all: --platform manylinux2014_x86_64 --python-version 3.12 --implementation cp --abi cp312 --target /tmp/medical_chatbot_py312_resolve_phase20 -r requirements.txt --report /tmp/medical_chatbot_py312_phase20_report.json`
+- `.venv/bin/python - <<'PY' ... broad secret scan, produced false positives for variable names and dummy fixtures ... PY`
+- `git diff --check`
+- `git check-ignore .env data/Medical_book.pdf .venv .pytest_cache __pycache__ .vercelignore || true`
+- `nl -ba tests/test_rag.py | sed -n '188,198p'`
+- `.venv/bin/python - <<'PY' ... refined secret-shaped scan excluding .env, PDFs, and explicit dummy fixture tokens ... PY`
+- `rg -n 'ChatOpenAI|OPENAI_API_KEY|pinecone-client|localhost|127\\.0\\.0\\.1|store_index' app.py src tests requirements.txt requirements.lock.txt README.md templates static public .gitignore .vercelignore || true`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} + && find . -path './.git' -prune -o -path './.venv' -prune -o \( -type d -name '__pycache__' -o -type d -name '.pytest_cache' -o -type f -name '*.pyc' \) -print | sort`
+- `.venv/bin/python -m pip check`
+- `test -f vercel.json && echo 'vercel_json: present' || echo 'vercel_json: absent'; test -f .vercelignore && echo 'vercelignore: present' || echo 'vercelignore: absent'; test -f public/static/style.css && echo 'public_static_css: present' || echo 'public_static_css: absent'; cmp -s static/style.css public/static/style.css && echo 'static_copy_matches: yes' || echo 'static_copy_matches: no'`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `git diff --name-only && git diff --cached --name-only`
+- `tail -n 40 BUILD_STATE.md`
+
+## Tests And Audit Results
+
+- `python -m compileall`: pass.
+- Default offline `pytest -q`: pass, 68 passed, 3 skipped, 1 warning, 16 subtests passed.
+- Flask import/startup suitability check: pass, top-level Flask app imports without external service calls.
+- Python 3.12 Linux dependency dry-run: pass, dependency resolution succeeds.
+- Dependency sanity: pass, `pip check` reported no broken requirements.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- `.env`, `data/Medical_book.pdf`, `.venv`, `.pytest_cache`, and `__pycache__` are ignored: pass.
+- Static copy for Vercel public serving: pass.
+- `vercel.json` necessity: not required in this phase.
+
+## Blockers
+
+- Standard Vercel deployment of Strategy A is blocked by package size and serverless model-cache/cold-start risk from local query embeddings.
+- Strategy B requires a later phase to move query embeddings out of the Vercel runtime while preserving local behavior.
+- Vercel project environment variables must be configured manually before any real deployment can answer questions.
+
+## Next Expected Phase
+
+- Deployment phase to implement Strategy B or an explicitly approved Large Functions Strategy A experiment.
+
+---
+
+## Deployment Phase 21 - Strategy B Implementation
+
+Status: PASS
+Completion timestamp: 2026-09-07 17:03:57 +06
+
+## Scope
+
+- Implemented Strategy B for Vercel compatibility.
+- Preserved local `python app.py` behavior by keeping local embeddings as the default provider.
+- Added hosted Hugging Face feature-extraction query embeddings for deployment only when `EMBEDDINGS_PROVIDER=huggingface_api`.
+- Kept Pinecone as the vector store and OpenRouter as the generation provider.
+- Did not run `store_index.py`.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not call Hugging Face hosted inference.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Implementation
+
+- Added `src/remote_embeddings.py` with a LangChain-compatible `HuggingFaceAPIEmbeddings` adapter using `huggingface_hub.InferenceClient.feature_extraction`.
+- Added `src/helper_constants.py` so the remote adapter can share the 384-dimensional embedding contract without importing local-only embedding code.
+- Updated `src/helper.py` so `PyPDFLoader`, `RecursiveCharacterTextSplitter`, and `HuggingFaceEmbeddings` are imported lazily.
+- Updated `src/helper.py` so `get_embeddings()` defaults to local embeddings, while `get_embeddings(settings=...)` can select hosted Hugging Face embeddings.
+- Updated `src/rag.py` so runtime vector-store creation passes settings into `get_embeddings()`.
+- Updated `app.py` so `/health` reports missing `HF_TOKEN` only when remote embeddings are selected, and `/get` maps hosted embedding failures to a 503 response.
+- Added `requirements-vercel.txt` without `torch`, `sentence-transformers`, `transformers`, or `langchain-huggingface`.
+- Added `vercel.json` so Vercel installs `requirements-vercel.txt`.
+- Updated `.env.example` with deployment embedding variable names only.
+- Updated README deployment notes for Strategy B.
+- Updated `scripts/check_env.py` to verify Strategy B deployment files and `.env.example` deployment variable names.
+
+## Deployment Environment Contract
+
+- Local default: `EMBEDDINGS_PROVIDER=local`.
+- Vercel deployment: set `EMBEDDINGS_PROVIDER=huggingface_api`.
+- Vercel deployment requires `HF_TOKEN` as a server-side environment variable.
+- `HUGGINGFACE_EMBEDDING_MODEL` remains `sentence-transformers/all-MiniLM-L6-v2` to match the already-indexed 384-dimensional Pinecone vectors.
+- `HUGGINGFACE_INFERENCE_PROVIDER` defaults to `hf-inference`.
+- `HUGGINGFACE_TIMEOUT_SECONDS` defaults to `15`.
+
+## Files Changed In Deployment Phase 21
+
+- `.env.example`
+- `README.md`
+- `app.py`
+- `requirements.txt`
+- `requirements-vercel.txt`
+- `scripts/check_env.py`
+- `src/config.py`
+- `src/helper.py`
+- `src/helper_constants.py`
+- `src/rag.py`
+- `src/remote_embeddings.py`
+- `tests/test_app.py`
+- `tests/test_check_env_script.py`
+- `tests/test_config.py`
+- `tests/test_deployment_config.py`
+- `tests/test_helper.py`
+- `tests/test_rag.py`
+- `tests/test_remote_embeddings.py`
+- `vercel.json`
+
+## Commands Run In Deployment Phase 21
+
+- `git status --short --untracked-files=all`
+- `tail -n 220 BUILD_STATE.md`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `sed -n '1,260p' requirements.txt && printf '\n--- lock key deps ---\n' && rg -n '^(sentence-transformers|torch|transformers|huggingface-hub|requests|httpx|flask|langchain|langchain-core|langchain-openrouter|langchain-pinecone|pinecone)==' requirements.lock.txt`
+- `.venv/bin/python - <<'PY' ... inspect `huggingface_hub.InferenceClient` signatures ... PY`
+- `sed -n '1,460p' tests/test_helper.py`
+- `sed -n '1,460p' tests/test_rag.py`
+- `sed -n '1,260p' tests/test_config.py && sed -n '1,240p' tests/test_app.py`
+- `sed -n '1,320p' tests/test_check_env_script.py && sed -n '1,320p' scripts/check_env.py`
+- `sed -n '1,380p' src/indexing.py`
+- `sed -n '1,180p' .env.example`
+- `sed -n '1,220p' .gitignore && sed -n '1,160p' .vercelignore`
+- `.venv/bin/pytest -q tests/test_config.py tests/test_helper.py tests/test_remote_embeddings.py tests/test_rag.py tests/test_app.py tests/test_check_env_script.py tests/test_deployment_config.py`
+- `.venv/bin/python -m compileall app.py src tests scripts store_index.py template.py`
+- `.venv/bin/python - <<'PY' ... local and remote embedding import sanity check ... PY`
+- `VERCEL=1 EMBEDDINGS_PROVIDER=huggingface_api PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter HF_TOKEN=placeholder-hf .venv/bin/python - <<'PY' ... blocked-heavy-import Vercel import check ... PY`
+- `.venv/bin/python -m pip install --dry-run --only-binary=:all: --platform manylinux2014_x86_64 --python-version 3.12 --implementation cp --abi cp312 --target /tmp/medical_chatbot_vercel_strategy_b -r requirements-vercel.txt --report /tmp/medical_chatbot_vercel_strategy_b_report.json`
+- `.venv/bin/pytest -q tests/test_deployment_config.py tests/test_remote_embeddings.py tests/test_helper.py tests/test_rag.py tests/test_app.py`
+- `.venv/bin/pytest -q tests/test_app.py tests/test_rag.py tests/test_helper.py tests/test_remote_embeddings.py tests/test_config.py tests/test_deployment_config.py`
+- `.venv/bin/python scripts/check_env.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m pip check`
+- `.venv/bin/python - <<'PY' ... direct dependency/import sanity check ... PY`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `git diff --check`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} + && find . -path './.git' -prune -o -path './.venv' -prune -o \( -type d -name '__pycache__' -o -type d -name '.pytest_cache' -o -type f -name '*.pyc' \) -print | sort`
+- `git status --short --untracked-files=all`
+- `git diff --name-only && git diff --cached --name-only`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- Targeted Strategy B tests: pass, 64 passed, 1 skipped, 16 subtests passed.
+- Full default offline `pytest -q`: pass, 83 passed, 3 skipped, 16 subtests passed.
+- `python -m compileall`: pass.
+- `scripts/check_env.py`: pass.
+- Dependency sanity: pass, `pip check` reported no broken requirements.
+- Import sanity: pass.
+- Vercel-style app import with heavy local embedding/PDF packages blocked: pass.
+- Vercel Python 3.12 slim dependency dry-run: pass.
+- Vercel slim dependency dry-run confirmed no `torch`, `sentence-transformers`, `transformers`, or `langchain-huggingface`.
+- Refined secret-shaped scan: pass.
+- `git diff --check`: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Deployment Readiness
+
+- Strategy B code-level implementation is ready for Vercel configuration.
+- No deployment was performed.
+- No live hosted embedding smoke test was run because it would require a real `HF_TOKEN` and an external request.
+
+## Vercel Action Required
+
+- Add server-side Vercel environment variables:
+  - `PINECONE_API_KEY`
+  - `PINECONE_INDEX_NAME=medical-bot`
+  - `PINECONE_NAMESPACE=medical-chatbot-v1`
+  - `OPENROUTER_API_KEY`
+  - `OPENROUTER_MODEL=openrouter/free`
+  - `EMBEDDINGS_PROVIDER=huggingface_api`
+  - `HF_TOKEN`
+  - `HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`
+  - `HUGGINGFACE_INFERENCE_PROVIDER=hf-inference`
+  - `HUGGINGFACE_TIMEOUT_SECONDS=15`
+- Do not upload `data/*.pdf` to Vercel.
+- Do not run `store_index.py` during Vercel build or startup.
+
+## Unresolved Issues
+
+- A real Vercel deployment and one live hosted embedding query have not been run in this phase.
+- Hugging Face hosted inference can be rate-limited or unavailable depending on account/provider status.
+- OpenRouter free model availability and quota remain external limitations.
+
+## Next Expected Phase
+
+- Vercel environment configuration and a controlled deployment smoke test with at most one hosted embedding call and one OpenRouter call.
+
+---
+
+## Deployment Phase 21 - Vercel Flask Entry Point
+
+Status: PASS
+Completion timestamp: 2026-09-07 17:22:58 +06
+
+## Scope
+
+- Added the smallest `api/index.py` entrypoint requested for Vercel.
+- Preserved local `python app.py` behavior.
+- Imported the existing Flask `app` instead of duplicating routes or RAG logic.
+- Kept one authoritative route set in root `app.py`.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not call Hugging Face hosted inference.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Implementation
+
+- Created `api/__init__.py`.
+- Created `api/index.py`.
+- `api/index.py` inserts the project root into `sys.path` when needed, then imports `app` from root `app.py`.
+- `api/index.py` exposes top-level `app` through `__all__ = ["app"]`.
+- Added `tests/test_vercel_entrypoint.py`.
+- Updated `scripts/check_env.py` so `api/__init__.py` and `api/index.py` are expected project files.
+- Did not add another `vercel.json`; the existing Strategy B `vercel.json` remains for the slim Vercel install command.
+
+## Verified Vercel Entry Point Behavior
+
+- `from api.index import app` succeeds.
+- Imported object is the same Flask instance as `app.app`.
+- `GET /` returns 200 through `api.index.app.test_client()`.
+- `GET /health` returns 200 through `api.index.app.test_client()` and does not expose secret values.
+- `POST /get` returns 200 JSON through `api.index.app.test_client()` when RAG is mocked.
+- Importing `api.index` does not call `Flask.run`.
+- Importing `api.index` does not import `store_index.py`.
+- Vercel-style import with local heavy embedding/PDF packages blocked succeeds for `/` and `/health`.
+
+## Vercel Sources Checked
+
+- Vercel Python `/api` directory docs: https://vercel.com/docs/functions/runtimes/python/api-directory
+- Vercel Python runtime docs: https://vercel.com/docs/functions/runtimes/python
+
+## Files Changed In Deployment Phase 21 Entry Point
+
+- `api/__init__.py`
+- `api/index.py`
+- `scripts/check_env.py`
+- `tests/test_vercel_entrypoint.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 21 Entry Point
+
+- `git status --short --untracked-files=all`
+- `tail -n 180 BUILD_STATE.md`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `sed -n '1,260p' app.py && sed -n '1,220p' vercel.json 2>/dev/null || true`
+- Official Vercel docs lookup for Python `/api` entrypoint behavior.
+- `.venv/bin/pytest -q tests/test_vercel_entrypoint.py tests/test_app.py tests/test_check_env_script.py`
+- `.venv/bin/python - <<'PY' ... direct `from api.index import app` route check ... PY`
+- `VERCEL=1 EMBEDDINGS_PROVIDER=huggingface_api PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter HF_TOKEN=placeholder-hf .venv/bin/python - <<'PY' ... blocked-heavy-import `api.index` check ... PY`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/python scripts/check_env.py`
+- `.venv/bin/python -m pip check`
+- `.venv/bin/pytest -q tests/test_vercel_entrypoint.py`
+- `.venv/bin/python - <<'PY' ... final `api.index` import, route, health, and `store_index` import check ... PY`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `git diff --check`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} + && find . -path './.git' -prune -o -path './.venv' -prune -o \( -type d -name '__pycache__' -o -type d -name '.pytest_cache' -o -type f -name '*.pyc' \) -print | sort`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- New Vercel entrypoint tests: pass, 4 passed.
+- Targeted Flask/checker tests with entrypoint tests: pass, 22 passed.
+- Full default offline `pytest -q`: pass, 87 passed, 3 skipped, 16 subtests passed.
+- `python -m compileall`: pass.
+- `scripts/check_env.py`: pass.
+- Dependency sanity: pass, `pip check` reported no broken requirements.
+- Final `api.index` import check: pass.
+- Final Vercel-style import with local heavy packages blocked: pass.
+- Refined secret-shaped scan: pass.
+- `git diff --check`: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Deployment Readiness
+
+- Code-level Vercel Flask entrypoint is ready.
+- No deployment was performed.
+- Runtime answering on Vercel still requires Vercel environment variables from the Strategy B phase.
+
+## Vercel Action Required
+
+- Configure the required server-side Vercel environment variables before deployment.
+- Keep `EMBEDDINGS_PROVIDER=huggingface_api` on Vercel.
+- Keep `HF_TOKEN` server-side only.
+- Do not upload `data/*.pdf` to Vercel.
+- Do not run `store_index.py` during Vercel build, import, startup, or request handling.
+
+## Unresolved Issues
+
+- No live Vercel deployment smoke test was run.
+- No live hosted embedding query was run.
+- OpenRouter and Hugging Face hosted inference remain external quota/rate-limit dependencies.
+
+## Next Expected Phase
+
+- Vercel environment configuration and controlled deployment smoke test.
+
+---
+
+## Deployment Phase 22 - Vercel Runtime Dependency And Embedding Audit
+
+Status: BLOCKED FOR STRATEGY A
+Completion timestamp: 2026-09-07 17:40:42 +06
+
+## Scope
+
+- Audited runtime dependency separation and Strategy A viability.
+- Did not deploy.
+- Did not modify application architecture.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not call Hugging Face hosted inference.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Dependency Separation
+
+Runtime dependencies needed by the deployed Flask request path:
+
+- `flask`
+- `python-dotenv`
+- `langchain-core`
+- `langchain-classic`
+- `langchain-text-splitters`
+- `langchain-pinecone`
+- `langchain-openrouter`
+- `pinecone`
+- Strategy A only: `langchain-huggingface`, `sentence-transformers`, and transitive `torch`/`transformers`
+- Strategy B only: `huggingface-hub`
+
+Indexing/development-only dependencies:
+
+- `pypdf`
+- `langchain-community`
+- `langchain-huggingface` when used for local indexing/development
+- `sentence-transformers` when used for local indexing/development
+- `pytest`
+- notebook/research dependencies if added later
+
+Deployment request path assessment:
+
+- `pypdf`: not required by `/`, `/health`, `/get`, or `api/index.py`.
+- Jupyter: not present in current dependency manifests and not required at runtime.
+- `pytest`: not required at runtime.
+- `store_index.py` and indexing utilities: not required at runtime and must not run during Vercel build/import/startup/request handling.
+- Query embedding is required at runtime and must use the same embedding space as the existing Pinecone index: `sentence-transformers/all-MiniLM-L6-v2`, dimension `384`.
+
+## Strategy A Attempt
+
+Strategy A tested: local Hugging Face query embeddings on Vercel, with no PDF loading, no indexing, lazy model initialization, and warm-instance reuse where possible.
+
+Minimal Strategy A runtime requirement set tested in `/tmp/medical_chatbot_strategy_a_requirements.txt`:
+
+- `flask`
+- `python-dotenv`
+- `langchain-core`
+- `langchain-classic`
+- `langchain-text-splitters`
+- `langchain-pinecone`
+- `langchain-openrouter`
+- `pinecone`
+- `langchain-huggingface`
+- `sentence-transformers`
+
+Python 3.12/Linux dependency resolution for this minimal Strategy A set succeeded, but the package payload is too large for standard Vercel.
+
+Measured package/build-size evidence:
+
+- Python 3.12/Linux minimal Strategy A wheel download count: 97 files.
+- Minimal Strategy A wheel directory size: 848 MB compressed wheel files.
+- `torch-2.6.0-cp312-cp312-manylinux1_x86_64.whl`: 731 MB on disk here; pip reported 766.6 MB during download.
+- `transformers-5.16.1`: 12 MB wheel.
+- `scipy-1.16.3`: 34 MB wheel.
+- `numpy-2.2.6`: 16 MB wheel.
+- Current local Python 3.10 installed footprint also shows the problem: `torch` alone is 526 MB, plus `transformers` 52 MB and `sentence_transformers` 2.9 MB.
+
+Verified Vercel limitation:
+
+- Current Vercel Python runtime docs state standard Python bundle size is 500 MB uncompressed.
+- Current Vercel function limits docs state Python function size is 500 MB uncompressed, with Large Functions up to 5 GB only in beta/Fluid Compute.
+- The compressed Strategy A wheel payload already exceeds 500 MB before installation expansion, bytecode, app code, or model cache.
+
+Model download/cache behavior:
+
+- With an empty Hugging Face cache and offline mode enabled, `get_embeddings(provider="local")` failed with an `OSError` containing offline/cache wording.
+- This confirms the local embedding path requires a cached model or internet/model download behavior when cache is absent.
+- That download/cache behavior is not acceptable as a standard Vercel request-time assumption.
+
+## Decision
+
+- Strategy A is not viable for standard Vercel.
+- No Strategy A runtime dependency file was created.
+- No lazy local embedding initialization test was added because Strategy A is blocked by measured package size before runtime behavior can be accepted.
+- Existing Strategy B files from the previous deployment phase remain the recommended path.
+- Do not silently replace the embedding model. The existing Pinecone vectors require the same `sentence-transformers/all-MiniLM-L6-v2` 384-dimensional embedding space.
+
+## Python Compatibility
+
+- Current Vercel Python docs list 3.12 as the default runtime, with 3.13 and 3.14 also available.
+- Minimal Strategy A dependencies resolve for Python 3.12/Linux, but size blocks standard deployment.
+- The repository's `setup.py` remains `python_requires=">=3.10,<3.13"`, so Python 3.12 is still the compatible Vercel target.
+
+## Sources Checked
+
+- Vercel Python Runtime: https://vercel.com/docs/functions/runtimes/python
+- Vercel Function Limits: https://vercel.com/docs/functions/limitations
+
+## Files Changed In Deployment Phase 22
+
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 22
+
+- `git status --short --untracked-files=all`
+- `tail -n 220 BUILD_STATE.md`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `sed -n '1,260p' requirements.txt && printf '\n--- requirements-vercel ---\n' && sed -n '1,220p' requirements-vercel.txt && printf '\n--- lock selected ---\n' && rg -n '^(Flask|flask|python-dotenv|pypdf|pytest|jupyter|sentence-transformers|torch|transformers|huggingface-hub|langchain|langchain-core|langchain-classic|langchain-community|langchain-text-splitters|langchain-huggingface|langchain-pinecone|langchain-openrouter|pinecone)==' requirements.lock.txt`
+- Official Vercel docs lookup for Python runtime, Python versions, bundle size, memory, and duration limits.
+- `sed -n '1,260p' src/helper.py && sed -n '1,320p' src/rag.py && sed -n '1,260p' src/remote_embeddings.py`
+- `printf '%s\n' ... > /tmp/medical_chatbot_strategy_a_requirements.txt`
+- `printf '%s\n' ... > /tmp/medical_chatbot_strategy_b_requirements.txt`
+- `du -sh .venv/lib/python3.10/site-packages/torch .venv/lib/python3.10/site-packages/transformers .venv/lib/python3.10/site-packages/sentence_transformers .venv/lib/python3.10/site-packages/langchain_huggingface 2>/dev/null || true`
+- `rg -n 'pypdf|PyPDFLoader|Jupyter|pytest|store_index|load_pdf_documents|split_documents|get_embeddings|HuggingFaceEmbeddings|sentence-transformers|torch|transformers|langchain_community|langchain_huggingface' app.py api src scripts tests requirements.txt requirements-vercel.txt vercel.json README.md`
+- `mkdir -p /tmp/medical_chatbot_strategy_a_wheels_1704 && .venv/bin/python -m pip download --only-binary=:all: --platform manylinux2014_x86_64 --python-version 3.12 --implementation cp --abi cp312 --dest /tmp/medical_chatbot_strategy_a_wheels_1704 -r /tmp/medical_chatbot_strategy_a_requirements.txt`
+- `du -sh /tmp/medical_chatbot_strategy_a_wheels_1704 && du -sh /tmp/medical_chatbot_strategy_a_wheels_1704/torch-*.whl /tmp/medical_chatbot_strategy_a_wheels_1704/transformers-*.whl /tmp/medical_chatbot_strategy_a_wheels_1704/sentence_transformers-*.whl /tmp/medical_chatbot_strategy_a_wheels_1704/scipy-*.whl /tmp/medical_chatbot_strategy_a_wheels_1704/numpy-*.whl 2>/dev/null || true && find /tmp/medical_chatbot_strategy_a_wheels_1704 -type f | wc -l`
+- `mkdir -p /tmp/medical_chatbot_empty_hf_cache_1704 /tmp/medical_chatbot_empty_st_cache_1704 && HF_HOME=/tmp/medical_chatbot_empty_hf_cache_1704 SENTENCE_TRANSFORMERS_HOME=/tmp/medical_chatbot_empty_st_cache_1704 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 .venv/bin/python - <<'PY' ... local embedding empty-cache check ... PY`
+- `.venv/bin/python -m pip install --dry-run --only-binary=:all: --platform manylinux2014_x86_64 --python-version 3.12 --implementation cp --abi cp312 --target /tmp/medical_chatbot_strategy_a_dryrun -r /tmp/medical_chatbot_strategy_a_requirements.txt --report /tmp/medical_chatbot_strategy_a_report.json`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/python -m pip check`
+- `VERCEL=1 EMBEDDINGS_PROVIDER=huggingface_api PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter HF_TOKEN=placeholder-hf .venv/bin/python - <<'PY' ... api.index import check ... PY`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `.venv/bin/python - <<'PY' ... cleanup temporary audit artifacts ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- Full default offline `pytest -q`: pass, 87 passed, 3 skipped, 16 subtests passed.
+- `python -m compileall`: pass.
+- Dependency sanity: pass, `pip check` reported no broken requirements.
+- `api.index` import check: pass.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Temporary wheel/cache audit artifacts cleaned from `/tmp`.
+
+## Blockers
+
+- Strategy A is blocked for standard Vercel because the minimal local-embedding runtime exceeds Vercel's 500 MB Python function size limit before installation expansion and model cache.
+- Local query embeddings would also require a pre-existing model cache or request-time model download when cache is absent.
+
+## Next Expected Phase
+
+- Proceed to Optional Prompt 28 only after explicit user approval, or continue with a controlled Strategy B Vercel deployment smoke test if the user chooses that path.
+
+---
+
+## Deployment Phase 23 - Controlled Strategy B Vercel Deployment Smoke Test
+
+Status: BLOCKED
+Completion timestamp: 2026-09-07 17:55:41 +06
+
+## Scope
+
+- Began controlled Strategy B Vercel deployment smoke-test preflight after user approval.
+- Did not deploy because the repository is not linked to a Vercel project.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not call Hugging Face hosted inference.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Preflight Findings
+
+- Vercel CLI is installed at `/opt/homebrew/bin/vercel`.
+- Vercel CLI version is `58.0.0`.
+- Vercel CLI authentication works for the current user.
+- `.vercel/project.json` is absent, so this local repository is not linked to a Vercel project.
+- `vercel env ls` cannot run until the codebase is linked.
+- `.env`, `data/Medical_book.pdf`, `.venv`, `.pytest_cache`, and `__pycache__` remain ignored.
+
+## Deployment Smoke Test Status
+
+- Deployment was not attempted.
+- No deployment URL was created.
+- No hosted embedding request was made.
+- No OpenRouter request was made.
+- No Pinecone request was made.
+
+## Files Changed In Deployment Phase 23
+
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 23
+
+- `git status --short --untracked-files=all`
+- `tail -n 180 BUILD_STATE.md`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `sed -n '1,220p' vercel.json && sed -n '1,160p' requirements-vercel.txt && sed -n '1,120p' api/index.py`
+- `command -v vercel || true`
+- `vercel --version 2>/dev/null || true`
+- `test -d .vercel && find .vercel -maxdepth 2 -type f -print | sort || true`
+- `git check-ignore .env data/Medical_book.pdf .vercel .venv .pytest_cache __pycache__ 2>/dev/null || true`
+- `vercel whoami`
+- `vercel env ls 2>&1 | sed -E 's/(token=|Bearer )[A-Za-z0-9._~+\/-]+/\1[redacted]/g'`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `VERCEL=1 EMBEDDINGS_PROVIDER=huggingface_api PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter HF_TOKEN=placeholder-hf .venv/bin/python - <<'PY' ... api.index import and route check ... PY`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `git diff --check`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} + && find . -path './.git' -prune -o -path './.venv' -prune -o \( -type d -name '__pycache__' -o -type d -name '.pytest_cache' -o -type f -name '*.pyc' \) -print | sort`
+- `git status --short --untracked-files=all`
+
+## Tests And Verification
+
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 87 passed, 3 skipped, 16 subtests passed.
+- Vercel-style `api.index` import and route check: pass, `/` and `/health` returned 200 with placeholder secrets not exposed.
+- Refined secret-shaped scan: pass.
+- `git diff --check`: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- The local repository is not linked to a Vercel project. Vercel CLI returned: codebase is not linked; pass a project name or run `vercel link`.
+- Vercel environment variables cannot be listed or verified until the project is linked.
+- Controlled deployment smoke test cannot continue safely until project linking is completed.
+
+## Vercel Action Required
+
+- Link this folder to the intended Vercel project by running one of these commands locally:
+  - Interactive: `vercel link`
+  - Non-interactive if you know the IDs: `vercel link --yes --team <team-id> --project <project-id>`
+- After linking, configure the required server-side environment variables in Vercel before deployment:
+  - `PINECONE_API_KEY`
+  - `PINECONE_INDEX_NAME=medical-bot`
+  - `PINECONE_NAMESPACE=medical-chatbot-v1`
+  - `OPENROUTER_API_KEY`
+  - `OPENROUTER_MODEL=openrouter/free`
+  - `EMBEDDINGS_PROVIDER=huggingface_api`
+  - `HF_TOKEN`
+  - `HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`
+  - `HUGGINGFACE_INFERENCE_PROVIDER=hf-inference`
+  - `HUGGINGFACE_TIMEOUT_SECONDS=15`
+
+## Next Expected Phase
+
+- Resume the controlled Strategy B Vercel deployment smoke test after the repository is linked to the intended Vercel project and server-side Vercel environment variables are configured.

@@ -42,6 +42,11 @@ def write_project_skeleton(root: Path, module) -> None:
         "FLASK_PORT=8080",
         "FLASK_DEBUG=false",
         "DATA_DIR=data",
+        "EMBEDDINGS_PROVIDER=local",
+        "HF_TOKEN=",
+        "HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2",
+        "HUGGINGFACE_INFERENCE_PROVIDER=hf-inference",
+        "HUGGINGFACE_TIMEOUT_SECONDS=15",
     ]
     (root / ".env.example").write_text(
         "\n".join(line.split("=", 1)[0] + "=" for line in env_lines) + "\n",

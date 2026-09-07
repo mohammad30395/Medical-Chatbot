@@ -12,10 +12,12 @@ from src.helper import (
     CHUNK_SIZE,
     EXPECTED_EMBEDDING_DIMENSION,
     PDFLoadError,
+    get_embeddings,
     load_pdf_documents,
     split_documents,
     verify_embedding_dimension,
 )
+from src.config import Settings
 
 
 class FakePyPDFLoader:
@@ -107,6 +109,28 @@ class SplitDocumentsTests(unittest.TestCase):
 
 
 class EmbeddingTests(unittest.TestCase):
+    def test_get_embeddings_uses_remote_provider_when_configured(self) -> None:
+        settings = Settings(
+            embeddings_provider="huggingface_api",
+            hf_token="hf_test_token",
+        )
+
+        with patch("src.helper.HuggingFaceAPIEmbeddings") as mock_remote_embeddings:
+            get_embeddings(settings=settings)
+
+        mock_remote_embeddings.assert_called_once_with(
+            api_key="hf_test_token",
+            model="sentence-transformers/all-MiniLM-L6-v2",
+            provider="hf-inference",
+            timeout_seconds=15,
+        )
+
+    def test_get_embeddings_remote_provider_requires_token(self) -> None:
+        settings = Settings(embeddings_provider="huggingface_api", hf_token="")
+
+        with self.assertRaisesRegex(Exception, "HF_TOKEN"):
+            get_embeddings(settings=settings)
+
     def test_embedding_dimension_check_returns_384(self) -> None:
         dimension = verify_embedding_dimension(
             FakeEmbeddings(EXPECTED_EMBEDDING_DIMENSION)

@@ -17,6 +17,7 @@ from src.config import ConfigurationError, Settings, load_settings
 from src.helper import get_embeddings
 from src.pinecone_index import ensure_pinecone_index
 from src.prompt import MEDICAL_QA_PROMPT
+from src.remote_embeddings import RemoteEmbeddingError
 
 
 RETRIEVER_SEARCH_KWARGS = {"k": 3}
@@ -60,7 +61,11 @@ class RetrievalPreview:
 
 def _redact_secret_values(message: str, settings: Settings) -> str:
     sanitized = message
-    for secret in (settings.openrouter_api_key, settings.pinecone_api_key):
+    for secret in (
+        settings.openrouter_api_key,
+        settings.pinecone_api_key,
+        settings.hf_token,
+    ):
         if secret:
             sanitized = sanitized.replace(secret, "[redacted]")
     sanitized = re.sub(
@@ -265,6 +270,8 @@ def answer_question(
     chain = rag_chain or get_rag_chain(settings=resolved_settings)
     try:
         chain_result = chain.invoke({"input": normalized_question})
+    except RemoteEmbeddingError:
+        raise
     except LLMError:
         raise
     except Exception as exc:
@@ -288,7 +295,7 @@ def get_vector_store(
     resolved_settings = settings or load_settings()
     resolved_settings.validate_for_indexing()
     pinecone_index = index or ensure_pinecone_index(resolved_settings)
-    embedding_model = embeddings or get_embeddings()
+    embedding_model = embeddings or get_embeddings(settings=resolved_settings)
     return PineconeVectorStore(
         index=pinecone_index,
         embedding=embedding_model,

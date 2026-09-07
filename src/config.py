@@ -24,6 +24,11 @@ DEFAULT_FLASK_HOST = "127.0.0.1"
 DEFAULT_FLASK_PORT = 8080
 DEFAULT_FLASK_DEBUG = False
 DEFAULT_DATA_DIR = "data"
+DEFAULT_EMBEDDINGS_PROVIDER = "local"
+REMOTE_EMBEDDINGS_PROVIDER = "huggingface_api"
+DEFAULT_HUGGINGFACE_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+DEFAULT_HUGGINGFACE_INFERENCE_PROVIDER = "hf-inference"
+DEFAULT_HUGGINGFACE_TIMEOUT_SECONDS = 15
 
 REQUIRED_ENV_VARS = (
     "PINECONE_API_KEY",
@@ -38,10 +43,23 @@ REQUIRED_ENV_VARS = (
     "FLASK_DEBUG",
     "DATA_DIR",
 )
+DEPLOYMENT_ENV_VARS = (
+    "EMBEDDINGS_PROVIDER",
+    "HF_TOKEN",
+    "HUGGINGFACE_EMBEDDING_MODEL",
+    "HUGGINGFACE_INFERENCE_PROVIDER",
+    "HUGGINGFACE_TIMEOUT_SECONDS",
+)
 
 
 class ConfigurationError(ValueError):
     """Raised when required configuration is missing or invalid."""
+
+
+def is_vercel_environment(environ: Mapping[str, str | None] | None = None) -> bool:
+    """Return whether settings are being loaded inside Vercel."""
+    mapping = environ if environ is not None else os.environ
+    return mapping.get("VERCEL") == "1"
 
 
 def ensure_env_file(
@@ -93,6 +111,17 @@ def _get_int(mapping: Mapping[str, str | None], key: str, default: int) -> int:
         raise ConfigurationError(f"Invalid {key} value. Expected an integer.") from exc
 
 
+def _normalize_embeddings_provider(value: str) -> str:
+    provider = value.strip().lower()
+    if provider in {"local", "huggingface_api"}:
+        return provider
+    if provider in {"hf_api", "huggingface", "huggingface-inference"}:
+        return REMOTE_EMBEDDINGS_PROVIDER
+    raise ConfigurationError(
+        "Invalid EMBEDDINGS_PROVIDER value. Expected local or huggingface_api."
+    )
+
+
 @dataclass(frozen=True)
 class Settings:
     """Runtime settings loaded from environment variables."""
@@ -108,10 +137,18 @@ class Settings:
     flask_port: int = DEFAULT_FLASK_PORT
     flask_debug: bool = DEFAULT_FLASK_DEBUG
     data_dir: str = DEFAULT_DATA_DIR
+    embeddings_provider: str = DEFAULT_EMBEDDINGS_PROVIDER
+    hf_token: str = ""
+    huggingface_embedding_model: str = DEFAULT_HUGGINGFACE_EMBEDDING_MODEL
+    huggingface_inference_provider: str = DEFAULT_HUGGINGFACE_INFERENCE_PROVIDER
+    huggingface_timeout_seconds: int = DEFAULT_HUGGINGFACE_TIMEOUT_SECONDS
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, str | None]) -> "Settings":
         """Build settings from an environment-style mapping."""
+        embeddings_provider = _normalize_embeddings_provider(
+            _get(mapping, "EMBEDDINGS_PROVIDER", DEFAULT_EMBEDDINGS_PROVIDER)
+        )
         return cls(
             pinecone_api_key=mapping.get("PINECONE_API_KEY") or "",
             pinecone_index_name=_get(
@@ -132,6 +169,23 @@ class Settings:
                 mapping.get("FLASK_DEBUG"), default=DEFAULT_FLASK_DEBUG
             ),
             data_dir=_get(mapping, "DATA_DIR", DEFAULT_DATA_DIR),
+            embeddings_provider=embeddings_provider,
+            hf_token=mapping.get("HF_TOKEN") or "",
+            huggingface_embedding_model=_get(
+                mapping,
+                "HUGGINGFACE_EMBEDDING_MODEL",
+                DEFAULT_HUGGINGFACE_EMBEDDING_MODEL,
+            ),
+            huggingface_inference_provider=_get(
+                mapping,
+                "HUGGINGFACE_INFERENCE_PROVIDER",
+                DEFAULT_HUGGINGFACE_INFERENCE_PROVIDER,
+            ),
+            huggingface_timeout_seconds=_get_int(
+                mapping,
+                "HUGGINGFACE_TIMEOUT_SECONDS",
+                DEFAULT_HUGGINGFACE_TIMEOUT_SECONDS,
+            ),
         )
 
     def validate_for_indexing(self) -> None:
@@ -142,13 +196,31 @@ class Settings:
         """Validate settings needed to run the chatbot application."""
         self._require("PINECONE_API_KEY", self.pinecone_api_key)
         self._require("OPENROUTER_API_KEY", self.openrouter_api_key)
+        if self.uses_remote_embeddings:
+            self._require("HF_TOKEN", self.hf_token)
+
+    @property
+    def uses_remote_embeddings(self) -> bool:
+        """Return whether runtime query embeddings use hosted inference."""
+        return self.embeddings_provider == REMOTE_EMBEDDINGS_PROVIDER
+
+    def missing_runtime_secret_names(self) -> list[str]:
+        """Return missing runtime secrets without exposing values."""
+        missing = []
+        if not self.pinecone_api_key.strip():
+            missing.append("PINECONE_API_KEY")
+        if not self.openrouter_api_key.strip():
+            missing.append("OPENROUTER_API_KEY")
+        if self.uses_remote_embeddings and not self.hf_token.strip():
+            missing.append("HF_TOKEN")
+        return missing
 
     @staticmethod
     def _require(env_var: str, value: str) -> None:
         if not value.strip():
             raise ConfigurationError(
                 f"Missing required environment variable: {env_var}. "
-                f"Set {env_var} in .env."
+                f"Set {env_var} in .env locally or as a Vercel environment variable."
             )
 
 
@@ -164,7 +236,7 @@ def load_settings(
     if environ is not None:
         return Settings.from_mapping(environ)
 
-    if create_env_file:
+    if create_env_file and not is_vercel_environment():
         ensure_env_file(env_path=env_path, example_path=example_path)
 
     load_dotenv(dotenv_path=env_path, override=override)

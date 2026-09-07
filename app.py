@@ -14,11 +14,12 @@ from src.rag import (
     QUESTION_TOO_LONG_MESSAGE,
     answer_question,
 )
+from src.remote_embeddings import RemoteEmbeddingError
 
 
 app = Flask(__name__)
 
-RUNTIME_SECRET_VARS = ("PINECONE_API_KEY", "OPENROUTER_API_KEY")
+RUNTIME_SECRET_VARS = ("PINECONE_API_KEY", "OPENROUTER_API_KEY", "HF_TOKEN")
 
 
 def _normalize_message(value: object) -> str:
@@ -39,12 +40,7 @@ def _request_message() -> str:
 
 
 def _missing_runtime_variables(settings: Settings) -> list[str]:
-    missing = []
-    if not settings.pinecone_api_key.strip():
-        missing.append("PINECONE_API_KEY")
-    if not settings.openrouter_api_key.strip():
-        missing.append("OPENROUTER_API_KEY")
-    return missing
+    return settings.missing_runtime_secret_names()
 
 
 def _runtime_configuration_status() -> dict[str, Any]:
@@ -120,6 +116,8 @@ def get_answer():
         return _json_error(str(exc), 400)
     except PineconeIndexError:
         return _json_error("The medical knowledge index is unavailable.", 503)
+    except RemoteEmbeddingError:
+        return _json_error("The query embedding service is unavailable.", 503)
     except LLMError as exc:
         return _json_error(_llm_error_message(exc), 503)
     except Exception as exc:

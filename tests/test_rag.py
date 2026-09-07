@@ -13,6 +13,7 @@ from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 
 from src.config import ConfigurationError, Settings, load_settings
+from src.remote_embeddings import RemoteEmbeddingError
 from src.rag import (
     EMERGENCY_RESPONSE,
     LLM_MAX_RETRIES,
@@ -124,7 +125,7 @@ class RagUnitTests(unittest.TestCase):
         self.assertIs(vector_store, FakeVectorStore.instances[0])
         self.assertEqual(vector_store.namespace, "medical-chatbot-v1")
         mock_ensure_pinecone_index.assert_called_once_with(self.settings)
-        mock_get_embeddings.assert_called_once_with()
+        mock_get_embeddings.assert_called_once_with(settings=self.settings)
 
     def test_get_retriever_preserves_tutorial_k_setting(self) -> None:
         vector_store = FakeVectorStore(index=object(), embedding=object(), namespace="ns")
@@ -378,6 +379,17 @@ class RagUnitTests(unittest.TestCase):
         self.assertIn("[redacted]", message)
         self.assertNotIn("pinecone-secret", message)
         self.assertNotIn("openrouter-secret", message)
+
+    def test_answer_question_preserves_remote_embedding_errors(self) -> None:
+        chain = FakeRagChain({"answer": "unused"})
+
+        def raise_embedding_error(_: dict[str, str]) -> object:
+            raise RemoteEmbeddingError("Hugging Face unavailable")
+
+        chain.invoke = raise_embedding_error
+
+        with self.assertRaises(RemoteEmbeddingError):
+            answer_question("What is diabetes?", rag_chain=chain)
 
 
 class SmokeScriptTests(unittest.TestCase):
