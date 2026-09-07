@@ -1804,3 +1804,122 @@ Completion timestamp: 2026-09-07 01:40:37 +06
 ## Next Expected Phase
 
 - Phase 14, only when explicitly requested.
+
+---
+
+## Phase 14 - Medical Safety and RAG Hardening
+
+Status: PASS
+Completion timestamp: 2026-09-07 01:48:24 +06
+
+## Scope
+
+- Reviewed the browser to Flask to RAG request path.
+- Hardened the RAG system prompt against retrieved-document prompt injection.
+- Added explicit prompt priority wording: system rules outrank user text and retrieved context.
+- Added explicit wording that retrieved PDF text is data, not instructions.
+- Added backend and RAG input length limits.
+- Added emergency-like input handling that returns a short urgent-care recommendation without invoking retrieval or the LLM.
+- Preserved the educational disclaimer in the UI.
+- Preserved top-k retrieval behavior from the tutorial.
+- Did not add a moderation API or paid service.
+- Did not change dependencies.
+- Did not call OpenRouter as part of Phase 14 tests.
+- Did not upload, delete, rebuild, or index Pinecone data.
+
+## Safety Contract
+
+- Retrieved PDF text is treated as untrusted data, not executable instructions.
+- Prompt tells the model to ignore role changes, policy changes, tool requests, or override attempts in retrieved context.
+- Insufficient-context behavior remains exactly: `I don't know based on the provided medical source.`
+- Prompt continues to prohibit fabricated diagnoses, treatments, drug doses, contraindications, and unsupported certainty.
+- Emergency-like user statements return: `If this may be an emergency, seek urgent professional or emergency help now.`
+- One request is limited to 2000 normalized characters.
+- The Flask route rejects overlong requests before calling RAG.
+- No default application logging of full medical user queries was added.
+- The browser still sends only the user's current question to `/get`.
+- The LLM context remains limited to retrieved chunks supplied by the retriever chain, not the whole PDF.
+
+## Files Changed In Phase 14
+
+- `app.py`
+- `src/prompt.py`
+- `src/rag.py`
+- `templates/chat.html`
+- `tests/test_app.py`
+- `tests/test_rag.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 14
+
+- `pwd && rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 180 BUILD_STATE.md`
+- `sed -n '1,260p' src/prompt.py`
+- `sed -n '1,280p' src/rag.py`
+- `sed -n '1,260p' app.py`
+- `sed -n '1,260p' templates/chat.html`
+- `sed -n '1,320p' tests/test_app.py`
+- `sed -n '1,360p' tests/test_rag.py`
+- `git diff -- app.py src/prompt.py src/rag.py templates/chat.html`
+- `.venv/bin/python -m py_compile app.py src/prompt.py src/rag.py tests/test_app.py tests/test_rag.py`
+- `.venv/bin/python -m unittest tests.test_rag tests.test_app -v`
+- `.venv/bin/python -m unittest discover -s tests -v`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `.venv/bin/python - <<'PY' ... print configured Flask host/port/debug ... PY`
+- `rg -n 'logger\.|logging\.|print\(|console\.log|console\.error|console\.warn' app.py src templates static || true`
+- `rg -n 'innerHTML|insertAdjacentHTML|outerHTML|OpenRouter|openrouter|Pinecone|pinecone|OPENROUTER|PINECONE|api\.openrouter|pinecone\.io|https?://|cdn' templates static || true`
+- `.venv/bin/python app.py`
+- `curl -sS -o /tmp/medical_chatbot_phase14_home.html -w '%{http_code}\n' http://127.0.0.1:8080/`
+- `curl -sS -o /tmp/medical_chatbot_phase14_style.css -w '%{http_code}\n' http://127.0.0.1:8080/static/style.css`
+- `curl -sS http://127.0.0.1:8080/health`
+- `curl -sS -X POST -H 'Content-Type: application/json' -d '{"message":"   "}' -o /tmp/medical_chatbot_phase14_empty.json -w '%{http_code}\n' http://127.0.0.1:8080/get`
+- `.venv/bin/python -m pip check`
+- `git diff --check`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' 'ChatOpenAI|OPENAI_API_KEY' app.py src tests scripts store_index.py template.py setup.py README.md .env.example templates static`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `git diff --stat`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `tail -n 150 BUILD_STATE.md`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment inspected: pass.
+- Dependency changes made: none.
+- `app.py` syntax validation: pass.
+- `src/prompt.py` syntax validation: pass.
+- `src/rag.py` syntax validation: pass.
+- `tests/test_app.py` syntax validation: pass.
+- `tests/test_rag.py` syntax validation: pass.
+- Focused RAG and Flask tests: pass, 35 tests.
+- Full suite with repository test path: pass, 63 tests.
+- Prompt-injection phrase inside a fake retrieved document is treated as content, not instruction: pass.
+- Empty input rejection: pass.
+- Overlong input rejection: pass.
+- Insufficient-context behavior: pass.
+- No secret leakage in wrapped RAG errors: pass.
+- Emergency-like input returns a short urgent-care response without calling the chain: pass.
+- UI educational disclaimer remains visible: pass.
+- Browser-side raw HTML insertion scan: pass.
+- Browser-side direct OpenRouter/Pinecone reference scan: pass.
+- Manual local GET `/`: pass, HTTP 200.
+- Manual local GET `/static/style.css`: pass, HTTP 200.
+- Manual local GET `/health`: pass, HTTP 200 and no secret values.
+- Manual local empty POST `/get`: pass, HTTP 400.
+- `pip check`: pass.
+- `ChatOpenAI` / `OPENAI_API_KEY` scoped source scan: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, outside `.env`, and excluding `BUILD_STATE.md`: pass.
+- `git diff --check`: pass.
+
+## Unresolved Issues
+
+- No Phase 14 code blockers found.
+- Full test discovery still emits the existing Hugging Face unauthenticated-request warning from the prior retriever integration test when credentials and index are available.
+- The Flask development server is running locally at `http://127.0.0.1:8080`.
+
+## Next Expected Phase
+
+- Phase 15, only when explicitly requested.

@@ -25,6 +25,21 @@ LLM_TIMEOUT_SECONDS = 15
 LLM_MAX_RETRIES = 0
 LLM_MAX_TOKENS = 64
 LLM_SMOKE_PROMPT = "Reply with exactly: OK"
+MAX_QUESTION_CHARS = 2000
+EMERGENCY_RESPONSE = (
+    "If this may be an emergency, seek urgent professional or emergency help now."
+)
+QUESTION_TOO_LONG_MESSAGE = (
+    f"Question is too long. Limit is {MAX_QUESTION_CHARS} characters."
+)
+EMERGENCY_PATTERN = re.compile(
+    r"\b("
+    r"chest pain|can'?t breathe|cannot breathe|trouble breathing|"
+    r"severe bleeding|stroke|heart attack|overdose|seizure|"
+    r"suicidal|kill myself|self[- ]?harm"
+    r")\b",
+    flags=re.IGNORECASE,
+)
 
 
 class LLMError(RuntimeError):
@@ -187,6 +202,21 @@ def _extract_source_metadata(chain_result: Any) -> list[dict[str, object]]:
     return sources
 
 
+def normalize_question(question: str) -> str:
+    """Normalize and validate a user question before retrieval or LLM use."""
+    normalized_question = " ".join(question.split())
+    if not normalized_question:
+        raise ValueError("Question must not be empty.")
+    if len(normalized_question) > MAX_QUESTION_CHARS:
+        raise ValueError(QUESTION_TOO_LONG_MESSAGE)
+    return normalized_question
+
+
+def is_emergency_like(question: str) -> bool:
+    """Detect simple emergency-like statements for a short safety response."""
+    return bool(EMERGENCY_PATTERN.search(question))
+
+
 def answer_question(
     question: str,
     *,
@@ -194,9 +224,9 @@ def answer_question(
     settings: Settings | None = None,
 ) -> dict[str, object]:
     """Answer a user question with the configured RAG chain."""
-    normalized_question = question.strip()
-    if not normalized_question:
-        raise ValueError("Question must not be empty.")
+    normalized_question = normalize_question(question)
+    if is_emergency_like(normalized_question):
+        return {"answer": EMERGENCY_RESPONSE, "sources": []}
 
     resolved_settings = settings
     chain = rag_chain or get_rag_chain(settings=resolved_settings)

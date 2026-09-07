@@ -8,7 +8,12 @@ from flask import Flask, jsonify, render_template, request
 
 from src.config import ConfigurationError, Settings, load_settings
 from src.pinecone_index import PineconeIndexError
-from src.rag import LLMError, answer_question
+from src.rag import (
+    LLMError,
+    MAX_QUESTION_CHARS,
+    QUESTION_TOO_LONG_MESSAGE,
+    answer_question,
+)
 
 
 app = Flask(__name__)
@@ -95,7 +100,7 @@ def _looks_like_runtime_connectivity_failure(exc: Exception) -> bool:
 @app.get("/")
 def index():
     """Render the chat page."""
-    return render_template("chat.html")
+    return render_template("chat.html", max_question_chars=MAX_QUESTION_CHARS)
 
 
 @app.post("/get")
@@ -104,13 +109,15 @@ def get_answer():
     message = _request_message()
     if not message:
         return _json_error("Message is required.", 400)
+    if len(message) > MAX_QUESTION_CHARS:
+        return _json_error(QUESTION_TOO_LONG_MESSAGE, 400)
 
     try:
         result = answer_question(message)
     except ConfigurationError as exc:
         return _json_error(str(exc), 503)
-    except ValueError:
-        return _json_error("Message is required.", 400)
+    except ValueError as exc:
+        return _json_error(str(exc), 400)
     except PineconeIndexError:
         return _json_error("The medical knowledge index is unavailable.", 503)
     except LLMError as exc:

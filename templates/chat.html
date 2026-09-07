@@ -40,6 +40,7 @@
           id="messageInput"
           name="message"
           rows="1"
+          maxlength="{{ max_question_chars }}"
           placeholder="Type your medical-source question..."
           aria-label="Message"
           required
@@ -63,6 +64,10 @@
 
       function normalizeText(value) {
         return value.trim().replace(/\s+/g, " ");
+      }
+
+      function isTooLong(value) {
+        return value.length > Number(input.maxLength);
       }
 
       function resizeInput() {
@@ -129,6 +134,14 @@
 
         const userText = normalizeText(input.value);
         if (!userText) {
+          input.focus();
+          return;
+        }
+        if (isTooLong(userText)) {
+          appendMessage(
+            "assistant",
+            `Please keep your question under ${input.maxLength} characters.`
+          );
           input.focus();
           return;
         }

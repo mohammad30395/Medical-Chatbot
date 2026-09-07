@@ -8,6 +8,7 @@ from src.pinecone_index import PineconeIndexError
 from src.rag import LLMError
 
 from app import app
+from src.rag import MAX_QUESTION_CHARS, QUESTION_TOO_LONG_MESSAGE
 
 
 class FlaskBackendTests(unittest.TestCase):
@@ -31,6 +32,7 @@ class FlaskBackendTests(unittest.TestCase):
         self.assertIn("/get", body)
         self.assertIn("fetch", body)
         self.assertIn("textContent", body)
+        self.assertIn(f'maxlength="{MAX_QUESTION_CHARS}"', body)
         self.assertNotIn("OPENROUTER_API_KEY", body)
         self.assertNotIn("PINECONE_API_KEY", body)
 
@@ -47,6 +49,20 @@ class FlaskBackendTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.get_json())
+
+    @patch("app.answer_question")
+    def test_post_get_overlong_returns_400_without_rag_call(
+        self,
+        mock_answer_question,
+    ) -> None:
+        response = self.client.post(
+            "/get",
+            json={"message": "x" * (MAX_QUESTION_CHARS + 1)},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"], QUESTION_TOO_LONG_MESSAGE)
+        mock_answer_question.assert_not_called()
 
     @patch("app.answer_question", return_value={"answer": "A concise answer."})
     def test_post_get_with_mocked_answer_returns_json(self, mock_answer_question) -> None:
