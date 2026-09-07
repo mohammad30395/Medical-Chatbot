@@ -26,8 +26,9 @@ LLM_TEMPERATURE = 0
 LLM_TIMEOUT_SECONDS = 15
 LLM_MAX_RETRIES = 0
 LLM_MAX_TOKENS = 192
-LLM_REASONING = {"effort": "none"}
+LLM_REASONING = {"effort": "none", "exclude": True}
 LLM_SMOKE_PROMPT = "Reply with exactly: OK"
+LLM_EMPTY_RESPONSE_MESSAGE = "OpenRouter returned an empty response."
 MAX_QUESTION_CHARS = 2000
 MAX_CONTEXT_CHARS_PER_DOCUMENT = 300
 EMERGENCY_RESPONSE = (
@@ -159,7 +160,7 @@ def smoke_test_llm(*, settings: Settings | None = None) -> str:
 
     content = str(getattr(response, "content", "")).strip()
     if not content:
-        raise LLMError("OpenRouter returned an empty response.")
+        raise LLMError(LLM_EMPTY_RESPONSE_MESSAGE)
     return content
 
 
@@ -200,27 +201,46 @@ def limit_documents_for_llm(
     return limited_documents
 
 
+def _content_to_text(content: Any) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        text_parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                text_parts.append(item)
+            elif isinstance(item, dict):
+                text_parts.append(str(item.get("text") or item.get("content") or ""))
+            else:
+                text_parts.append(str(getattr(item, "text", getattr(item, "content", ""))))
+        return " ".join(part.strip() for part in text_parts if part.strip()).strip()
+    return str(content).strip()
+
+
 def _extract_answer(chain_result: Any) -> str:
     if isinstance(chain_result, str):
-        return chain_result.strip()
+        text = chain_result.strip()
+        if text:
+            return text
 
     if isinstance(chain_result, dict):
         for key in ("answer", "output_text", "result"):
             value = chain_result.get(key)
             if value is None:
                 continue
-            content = getattr(value, "content", value)
-            text = str(content).strip()
+            text = _content_to_text(getattr(value, "content", value))
             if text:
                 return text
 
     content = getattr(chain_result, "content", None)
     if content is not None:
-        text = str(content).strip()
+        text = _content_to_text(content)
         if text:
             return text
 
-    raise LLMError("RAG chain returned no answer text.")
+    raise LLMError(LLM_EMPTY_RESPONSE_MESSAGE)
 
 
 def _extract_source_metadata(chain_result: Any) -> list[dict[str, object]]:

@@ -16,6 +16,7 @@ from src.config import ConfigurationError, Settings, load_settings
 from src.remote_embeddings import RemoteEmbeddingError
 from src.rag import (
     EMERGENCY_RESPONSE,
+    LLM_EMPTY_RESPONSE_MESSAGE,
     LLM_MAX_RETRIES,
     LLM_MAX_TOKENS,
     LLM_REASONING,
@@ -359,6 +360,20 @@ class RagUnitTests(unittest.TestCase):
 
         self.assertEqual(result["answer"], UNKNOWN_CONTEXT_RESPONSE)
         self.assertEqual(result["sources"], [])
+
+    def test_answer_question_handles_openrouter_empty_content_safely(self) -> None:
+        chain = FakeRagChain(
+            {
+                "answer": SimpleNamespace(
+                    content="",
+                    additional_kwargs={"reasoning": "hidden"},
+                ),
+                "context": [],
+            }
+        )
+
+        with self.assertRaisesRegex(LLMError, LLM_EMPTY_RESPONSE_MESSAGE):
+            answer_question("What are common symptoms?", rag_chain=chain)
 
     def test_answer_question_redacts_secrets_from_wrapped_errors(self) -> None:
         settings = Settings(

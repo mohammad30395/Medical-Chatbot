@@ -4312,3 +4312,78 @@ Completion timestamp: 2026-09-07 22:40:01 +06
 ## Next Expected Phase
 
 - After redeploying this reasoning compatibility fix, resume with one deployed `/health` check and at most one deployed `/get` request.
+
+---
+
+## Deployment Fix - OpenRouter Empty Content Handling
+
+Status: PASS
+Completion timestamp: 2026-09-07 22:47:24 +06
+
+## Scope
+
+- Kept the existing architecture unchanged.
+- Kept Pinecone unchanged.
+- Kept Hugging Face hosted embeddings unchanged.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not call Hugging Face hosted inference.
+- Did not add automatic retry loops.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Changes
+
+- Updated `ChatOpenRouter` configuration to pass `reasoning={"effort": "none", "exclude": True}`.
+- Added `LLM_EMPTY_RESPONSE_MESSAGE` so empty OpenRouter responses use one clear internal error.
+- Made answer extraction handle empty strings, empty message `content`, and list-style content blocks safely.
+- Added a unit test simulating an OpenRouter-style response object with empty `content`.
+
+## Files Changed
+
+- `BUILD_STATE.md`
+- `src/rag.py`
+- `tests/test_rag.py`
+
+## Commands Run
+
+- `git status --short --untracked-files=all`
+- `sed -n '1,360p' src/rag.py`
+- `sed -n '1,360p' tests/test_rag.py`
+- `tail -n 120 BUILD_STATE.md`
+- `.venv/bin/pytest -q tests/test_rag.py tests/test_app.py`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m pip check`
+- `VERCEL=1 EMBEDDINGS_PROVIDER=huggingface_api PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter HF_TOKEN=placeholder-hf .venv/bin/python - <<'PY' ... api.index import and route check ... PY`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- Focused tests: pass, 41 passed, 1 skipped, 4 subtests passed.
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 91 passed, 3 skipped, 16 subtests passed.
+- `pip check`: pass, no broken requirements.
+- Vercel-style `api.index` import check: pass, `/` and `/health` returned 200 with placeholder values not exposed.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- None for code-level implementation.
+- Vercel production must be redeployed before this fix affects the deployed app.
+
+## Vercel Action Required
+
+- Redeploy production so Vercel runs the updated `src/rag.py`.
+
+## Next Expected Phase
+
+- After redeploying this fix, run one deployed `/health` check and at most one deployed `/get` request.
