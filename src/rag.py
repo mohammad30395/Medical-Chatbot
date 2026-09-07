@@ -24,7 +24,7 @@ PREVIEW_MAX_CHARS = 160
 LLM_TEMPERATURE = 0
 LLM_TIMEOUT_SECONDS = 15
 LLM_MAX_RETRIES = 0
-LLM_MAX_TOKENS = 64
+LLM_MAX_TOKENS = 48
 LLM_SMOKE_PROMPT = "Reply with exactly: OK"
 MAX_QUESTION_CHARS = 2000
 MAX_CONTEXT_CHARS_PER_DOCUMENT = 300
@@ -91,7 +91,15 @@ def _classify_llm_error(message: str) -> str:
         return "OpenRouter model unavailable"
     if any(
         text in lowered
-        for text in ("429", "rate limit", "quota", "insufficient credits")
+        for text in (
+            "429",
+            "rate limit",
+            "quota",
+            "insufficient credits",
+            "more credits",
+            "fewer max_tokens",
+            "can only afford",
+        )
     ):
         return "OpenRouter rate limit or quota exceeded"
     if any(

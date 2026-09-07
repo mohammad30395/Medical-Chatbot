@@ -2572,6 +2572,150 @@ python store_index.py --ingest
 
 ---
 
+## Post-Phase Fix - OpenRouter Model Configuration Retry
+
+Status: PASS
+Completion timestamp: 2026-09-07 14:54:50 +06
+
+## Issue
+
+- User still saw the browser message: `The language model is temporarily unavailable because of rate limits or quota.`
+- Sanitized environment inspection showed `OPENROUTER_MODEL` was set to placeholder text: `some-available-openrouter-model`.
+- That placeholder is not a usable OpenRouter model ID.
+
+## Fix
+
+- Updated only the non-secret `.env` model setting back to the project default: `OPENROUTER_MODEL=openrouter/free`.
+- Did not change API keys.
+- Did not print API keys.
+- Did not change source code in this retry.
+
+## Verification
+
+- Fresh Flask `test_client` POST `/get` with `What is diabetes mellitus?`: pass, HTTP 200 with a non-empty answer.
+- Verified active settings without printing secrets:
+  - `OPENROUTER_API_KEY`: present.
+  - `PINECONE_API_KEY`: present.
+  - `OPENROUTER_MODEL`: `openrouter/free`.
+  - `LLM_MAX_TOKENS`: 48.
+- Port 8080 check after verification: no Flask process was listening.
+- `git diff --check`: pass.
+
+## Files Changed
+
+- `.env` was updated locally and remains ignored by Git.
+- `BUILD_STATE.md`
+
+## Commands Run
+
+- `pwd; git status --short --untracked-files=all`
+- `rg -n 'LLM_MAX_TOKENS|OPENROUTER_MODEL|DEFAULT_OPENROUTER_MODEL|_classify_llm_error|more credits|fewer max_tokens|can only afford' src tests .env.example`
+- `tail -n 120 BUILD_STATE.md`
+- `.venv/bin/python - <<'PY' ... sanitized OpenRouter/Pinecone key presence and model check ... PY`
+- `.venv/bin/python - <<'PY' ... update OPENROUTER_MODEL in .env without printing secrets ... PY`
+- `.venv/bin/python - <<'PY' ... fresh Flask test_client POST /get verification ... PY`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `git diff --check`
+- `git status --short --untracked-files=all`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests and Acceptance Checks
+
+- Repository, `BUILD_STATE.md`, and files inspected first: pass.
+- `.env` key values were not printed: pass.
+- OpenRouter model corrected from placeholder to project default: pass.
+- Fresh `/get` backend path: pass, HTTP 200 with non-empty answer.
+- Port 8080 free after check: pass.
+- Git staging: pass, no files staged.
+
+## Unresolved Issues
+
+- OpenRouter free models remain rate-limited and availability can change.
+- If browser testing still shows an old response, start Flask again after this `.env` correction.
+
+## Next Expected Phase
+
+- No next build phase specified. Await explicit user direction.
+
+---
+
+## Post-Phase Fix - OpenRouter Token Cap
+
+Status: PASS
+Completion timestamp: 2026-09-07 13:27:11 +06
+
+## Issue
+
+- Browser requests to `/get` returned: `The language model request failed.`
+- A sanitized backend smoke check showed OpenRouter rejected the request because `max_tokens=64` was higher than the available allowance for the configured account/model.
+- The backend had not classified OpenRouter's `requires more credits, or fewer max_tokens` wording as a quota/rate-limit condition, so the browser received the generic LLM failure message.
+
+## Fix
+
+- Lowered `LLM_MAX_TOKENS` in `src/rag.py` from 64 to 48.
+- Updated OpenRouter error classification to treat `more credits`, `fewer max_tokens`, and `can only afford` as quota/rate-limit failures.
+- Added a unit test covering the observed OpenRouter error wording.
+- Did not change retrieval, embeddings, Pinecone, PDF loading, indexing, or UI architecture.
+- Did not print API keys.
+
+## Files Changed
+
+- `src/rag.py`
+- `tests/test_rag.py`
+- `BUILD_STATE.md`
+
+## Commands Run
+
+- `pwd; git status --short --untracked-files=all`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 220 BUILD_STATE.md`
+- `sed -n '1,380p' src/rag.py; sed -n '1,150p' src/prompt.py; sed -n '1,180p' app.py`
+- `.venv/bin/python scripts/check_env.py`
+- `.venv/bin/python - <<'PY' ... sanitized settings status without secret values ... PY`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `.venv/bin/python - <<'PY' ... sanitized OpenRouter smoke_test_llm diagnostic ... PY`
+- `rg -n 'LLM_MAX_TOKENS|rate limit|quota|_classify_llm_error|_llm_error_message|get_llm|smoke_test_llm' tests src app.py`
+- `sed -n '150,260p' tests/test_rag.py; sed -n '70,120p' tests/test_app.py`
+- `sed -n '1,260p' tests/test_integration.py`
+- `git diff -- src/rag.py tests/test_rag.py app.py | sed -n '1,240p'`
+- `.venv/bin/pytest -q tests/test_rag.py tests/test_app.py`
+- `.venv/bin/python -m compileall src/rag.py tests/test_rag.py app.py`
+- `.venv/bin/python - <<'PY' ... smoke_test_llm with LLM_MAX_TOKENS check ... PY`
+- `.venv/bin/python - <<'PY' ... Flask test_client POST /get live verification ... PY`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m compileall app.py src tests scripts store_index.py template.py`
+- `.venv/bin/python -m pip check`
+- `git diff -- src/rag.py tests/test_rag.py | sed -n '1,220p'`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type d -name '.pytest_cache' -o -type f -name '*.pyc' \) -print | sort`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+
+## Tests and Acceptance Checks
+
+- Environment checker: pass.
+- Sanitized settings check: pass, required keys present without printing values.
+- OpenRouter smoke after fix: pass, non-empty response.
+- Fresh Flask `test_client` POST `/get` after fix: pass, HTTP 200 with non-empty answer.
+- Targeted tests: pass, 35 passed, 1 skipped, 1 warning, 4 subtests passed.
+- Full offline `pytest -q`: pass, 67 passed, 3 skipped, 1 warning, 16 subtests passed.
+- `compileall`: pass.
+- `pip check`: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Unresolved Issues
+
+- The existing Flask process on port 8080 was still running with old code during the fix. Restart Flask before testing in the browser.
+- Default pytest still emits the existing `langchain-community` deprecation warning from the PyPDFLoader import.
+- If the OpenRouter account/model allowance drops below 48 output tokens, requests may still fail with a quota/rate-limit message. In that case, add credits, choose a model with available free quota, or lower the cap again.
+
+## Next Expected Phase
+
+- No next build phase specified. Await explicit user direction.
+
+---
+
 ## Optional Phase 19 - Local Convenience Commands
 
 Status: PASS

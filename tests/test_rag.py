@@ -207,6 +207,10 @@ class RagUnitTests(unittest.TestCase):
         cases = (
             ("404 model unavailable", "OpenRouter model unavailable"),
             ("429 quota exceeded", "OpenRouter rate limit or quota exceeded"),
+            (
+                "This request requires more credits, or fewer max_tokens.",
+                "OpenRouter rate limit or quota exceeded",
+            ),
             ("ReadTimeout network failure", "OpenRouter timeout or network failure"),
         )
 
