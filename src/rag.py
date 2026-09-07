@@ -26,6 +26,7 @@ LLM_TEMPERATURE = 0
 LLM_TIMEOUT_SECONDS = 15
 LLM_MAX_RETRIES = 0
 LLM_MAX_TOKENS = 192
+LLM_REASONING = {"effort": "none"}
 LLM_SMOKE_PROMPT = "Reply with exactly: OK"
 MAX_QUESTION_CHARS = 2000
 MAX_CONTEXT_CHARS_PER_DOCUMENT = 300
@@ -140,6 +141,7 @@ def get_llm(*, settings: Settings | None = None) -> ChatOpenRouter:
             timeout=LLM_TIMEOUT_SECONDS * 1000,
             max_retries=LLM_MAX_RETRIES,
             max_tokens=LLM_MAX_TOKENS,
+            reasoning=dict(LLM_REASONING),
         )
     except Exception as exc:
         raise _to_llm_error(exc, resolved_settings) from exc

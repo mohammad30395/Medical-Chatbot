@@ -4038,3 +4038,277 @@ Completion timestamp: 2026-09-07 19:05:23 +06
 ## Next Expected Phase
 
 - After redeploying this token-limit/error-message fix, resume with one deployed `/health` check and at most one deployed `/get` request.
+
+---
+
+## Deployment Phase 23 Retry 5 - Strategy B Deployed Chat Smoke
+
+Status: BLOCKED
+Completion timestamp: 2026-09-07 19:13:04 +06
+
+## Scope
+
+- Resumed after the user reported the latest redeploy was done.
+- Verified the production alias points to a newer Ready deployment.
+- Checked `/health` first.
+- Made exactly one deployed `/get` request.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not make repeated OpenRouter requests.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Deployment Findings
+
+- Production alias: `https://medical-chatbot-nine-topaz.vercel.app`
+- Direct deployment URL after latest redeploy: `https://medical-chatbot-6olusr6ri.vercel.app`
+- Deployment status: Ready.
+- Vercel build output reports Python function size: 50.45 MB.
+- Vercel production environment variable names include Strategy B variables:
+  - `EMBEDDINGS_PROVIDER`
+  - `HF_TOKEN`
+  - `HUGGINGFACE_EMBEDDING_MODEL`
+  - `HUGGINGFACE_INFERENCE_PROVIDER`
+  - `HUGGINGFACE_TIMEOUT_SECONDS`
+- Deployed `/health` returned HTTP 200 and `runtime_configuration_present=true`.
+
+## Deployed Smoke Result
+
+- `POST /get` returned HTTP 503 with sanitized JSON error: `The language model returned an empty response. Try again later or choose another OpenRouter model.`
+- Vercel logs showed:
+  - Hugging Face hosted embedding request returned HTTP 200.
+  - OpenRouter chat completion request returned HTTP 200.
+- This confirms Strategy B connectivity is working through Vercel, Hugging Face hosted embeddings, and OpenRouter transport.
+- The remaining failure is the response content from the OpenRouter model selected by `openrouter/free`.
+- Vercel logs also showed an earlier production `/get` request returning HTTP 200 with the same Hugging Face and OpenRouter services, so the failure is intermittent/model-route dependent rather than a deployment import/configuration failure.
+
+## Files Changed In Deployment Phase 23 Retry 5
+
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 23 Retry 5
+
+- `git status --short --untracked-files=all`
+- `tail -n 180 BUILD_STATE.md`
+- `vercel inspect medical-chatbot-nine-topaz.vercel.app --no-color`
+- `vercel env ls production --project medical-chatbot --no-color`
+- `curl -sS -D /tmp/medical_chatbot_vercel_health5_headers.txt -o /tmp/medical_chatbot_vercel_health5.json https://medical-chatbot-nine-topaz.vercel.app/health`
+- `curl -sS -D /tmp/medical_chatbot_vercel_get5_headers.txt -o /tmp/medical_chatbot_vercel_get5.json -X POST https://medical-chatbot-nine-topaz.vercel.app/get -H 'Content-Type: application/json' --data '{"message":"What are common symptoms of dengue?"}'`
+- `vercel logs medical-chatbot-nine-topaz.vercel.app --since 8m --no-color`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py && .venv/bin/pytest -q`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 90 passed, 3 skipped, 16 subtests passed.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- The configured Vercel `OPENROUTER_MODEL` value still appears to rely on `openrouter/free`, which can route to a model that returns empty content for this chain.
+- The deployed app is connected to Hugging Face and OpenRouter successfully, but the selected OpenRouter free route did not return usable answer text on the controlled request.
+
+## Vercel Action Required
+
+- Change the server-side Vercel `OPENROUTER_MODEL` value from `openrouter/free` to a specific currently available free OpenRouter model that returns normal chat content.
+- Redeploy production after changing `OPENROUTER_MODEL`.
+- Do not use `OPENAI_API_KEY` or `ChatOpenAI`.
+
+## Next Expected Phase
+
+- After selecting a specific working free OpenRouter model and redeploying, resume with one deployed `/health` check and at most one deployed `/get` request.
+
+---
+
+## Deployment Phase 23 Retry 6 - Specific OpenRouter Model Smoke
+
+Status: BLOCKED
+Completion timestamp: 2026-09-07 20:06:35 +06
+
+## Scope
+
+- Resumed after the user reported changing the Vercel `OPENROUTER_MODEL` value and redeploying.
+- Verified the production alias points to a newer Ready deployment.
+- Checked `/health` first.
+- Made exactly one deployed `/get` request.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not make repeated OpenRouter requests.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Deployment Findings
+
+- Production alias: `https://medical-chatbot-nine-topaz.vercel.app`
+- Direct deployment URL after latest redeploy: `https://medical-chatbot-jp6ni9l1x.vercel.app`
+- Deployment status: Ready.
+- Vercel build output reports Python function size: 50.45 MB.
+- Deployed `/health` returned HTTP 200 and `runtime_configuration_present=true`.
+- Vercel production environment variable names remain present for Strategy B and OpenRouter.
+
+## Deployed Smoke Result
+
+- `POST /get` returned HTTP 503 with sanitized JSON error: `The configured language model is currently unavailable.`
+- Vercel logs showed:
+  - Hugging Face hosted embedding request returned HTTP 200.
+  - OpenRouter chat completion request returned HTTP 404.
+- This confirms Pinecone/Hugging Face deployment wiring is still working, but the configured OpenRouter model ID is unavailable or invalid.
+
+## Current Free Model Evidence
+
+- Checked OpenRouter's current model listing on 2026-09-07.
+- OpenRouter lists `inclusionai/ling-3.0-flash-sante:free` as a free text/chat model with a health/medicine focus.
+- Source: `https://openrouter.ai/inclusionai/ling-3.0-flash-sante:free`
+
+## Files Changed In Deployment Phase 23 Retry 6
+
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 23 Retry 6
+
+- `git status --short --untracked-files=all`
+- `tail -n 160 BUILD_STATE.md`
+- `vercel inspect medical-chatbot-nine-topaz.vercel.app --no-color`
+- `curl -sS -D /tmp/medical_chatbot_vercel_health6_headers.txt -o /tmp/medical_chatbot_vercel_health6.json https://medical-chatbot-nine-topaz.vercel.app/health`
+- `vercel env ls production --project medical-chatbot --no-color`
+- `curl -sS -D /tmp/medical_chatbot_vercel_get6_headers.txt -o /tmp/medical_chatbot_vercel_get6.json -X POST https://medical-chatbot-nine-topaz.vercel.app/get -H 'Content-Type: application/json' --data '{"message":"What are common symptoms of dengue?"}'`
+- `vercel logs medical-chatbot-nine-topaz.vercel.app --since 8m --no-color`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py && .venv/bin/pytest -q`
+- OpenRouter current model lookup for a free chat model.
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 90 passed, 3 skipped, 16 subtests passed.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- The current Vercel `OPENROUTER_MODEL` value is not accepted by OpenRouter; the chat completion endpoint returns HTTP 404.
+- The encrypted value cannot be printed or inspected safely from this audit.
+
+## Vercel Action Required
+
+- Change Vercel Production `OPENROUTER_MODEL` to a valid current free OpenRouter chat model.
+- A currently verified candidate is:
+  - `OPENROUTER_MODEL=inclusionai/ling-3.0-flash-sante:free`
+- Redeploy production after changing the environment variable.
+
+## Next Expected Phase
+
+- After correcting `OPENROUTER_MODEL` and redeploying, resume with one deployed `/health` check and at most one deployed `/get` request.
+
+---
+
+## Deployment Phase 23 Retry 7 - OpenRouter Reasoning Output Compatibility
+
+Status: BLOCKED
+Completion timestamp: 2026-09-07 22:40:01 +06
+
+## Scope
+
+- Retried the deployed Strategy B smoke test after the user requested another attempt.
+- Verified the production alias points to a newer Ready deployment.
+- Checked `/health` first.
+- Made exactly one deployed `/get` request.
+- Inspected sanitized Vercel logs once.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not make repeated OpenRouter requests.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Deployment Findings
+
+- Production alias: `https://medical-chatbot-nine-topaz.vercel.app`
+- Direct deployment URL after latest redeploy: `https://medical-chatbot-fpixb5con.vercel.app`
+- Deployment status: Ready.
+- Vercel build output reports Python function size: 50.45 MB.
+- Deployed `/health` returned HTTP 200 and `runtime_configuration_present=true`.
+- Vercel production environment variable names remain present for Strategy B and OpenRouter.
+
+## Deployed Smoke Result
+
+- `POST /get` returned HTTP 503 with sanitized JSON error: `The language model returned an empty response. Try again later or choose another OpenRouter model.`
+- Vercel logs showed:
+  - Hugging Face hosted embedding request returned HTTP 200.
+  - OpenRouter chat completion request returned HTTP 200.
+- The configured model is now accepted by OpenRouter, but it can still produce no normal answer content for this LangChain response path.
+
+## Local Fix Implemented
+
+- Added `LLM_REASONING = {"effort": "none"}`.
+- Passed `reasoning=dict(LLM_REASONING)` to `ChatOpenRouter`.
+- This asks reasoning-capable OpenRouter models to return normal answer content instead of spending output on hidden/reasoning tokens.
+- Kept `LLM_MAX_RETRIES=0`.
+- Kept `OPENROUTER_MODEL` configurable and did not hard-code a specific model.
+
+## Files Changed In Deployment Phase 23 Retry 7
+
+- `BUILD_STATE.md`
+- `src/rag.py`
+- `tests/test_rag.py`
+
+## Commands Run In Deployment Phase 23 Retry 7
+
+- `git status --short --untracked-files=all`
+- `tail -n 160 BUILD_STATE.md`
+- `vercel inspect medical-chatbot-nine-topaz.vercel.app --no-color`
+- `curl -sS -D /tmp/medical_chatbot_vercel_health7_headers.txt -o /tmp/medical_chatbot_vercel_health7.json https://medical-chatbot-nine-topaz.vercel.app/health`
+- `vercel env ls production --project medical-chatbot --no-color`
+- `curl -sS -D /tmp/medical_chatbot_vercel_get7_headers.txt -o /tmp/medical_chatbot_vercel_get7.json -X POST https://medical-chatbot-nine-topaz.vercel.app/get -H 'Content-Type: application/json' --data '{"message":"What are common symptoms of dengue?"}'`
+- `vercel logs medical-chatbot-nine-topaz.vercel.app --since 8m --no-color`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py && .venv/bin/pytest -q`
+- OpenRouter public models endpoint check without using an API key.
+- `.venv/bin/python - <<'PY' ... ChatOpenRouter signature and source inspection ... PY`
+- `.venv/bin/pytest -q tests/test_rag.py tests/test_app.py`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m pip check`
+- `VERCEL=1 EMBEDDINGS_PROVIDER=huggingface_api PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter HF_TOKEN=placeholder-hf .venv/bin/python - <<'PY' ... api.index import and route check ... PY`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- Focused tests: pass, 40 passed, 1 skipped, 4 subtests passed.
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 90 passed, 3 skipped, 16 subtests passed.
+- `pip check`: pass, no broken requirements.
+- Vercel-style `api.index` import and route check: pass, `/` and `/health` returned 200 with placeholder values not exposed.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- The deployed production app still uses the previous OpenRouter request parameters until this local reasoning compatibility fix is redeployed.
+
+## Vercel Action Required
+
+- Redeploy production so Vercel runs the updated `src/rag.py`.
+- Keep `OPENROUTER_MODEL` set to a valid current free chat model.
+
+## Next Expected Phase
+
+- After redeploying this reasoning compatibility fix, resume with one deployed `/health` check and at most one deployed `/get` request.

@@ -18,6 +18,7 @@ from src.rag import (
     EMERGENCY_RESPONSE,
     LLM_MAX_RETRIES,
     LLM_MAX_TOKENS,
+    LLM_REASONING,
     LLM_SMOKE_PROMPT,
     LLM_TEMPERATURE,
     LLM_TIMEOUT_SECONDS,
@@ -174,6 +175,7 @@ class RagUnitTests(unittest.TestCase):
         self.assertEqual(llm.kwargs["timeout"], LLM_TIMEOUT_SECONDS * 1000)
         self.assertEqual(llm.kwargs["max_retries"], LLM_MAX_RETRIES)
         self.assertEqual(llm.kwargs["max_tokens"], LLM_MAX_TOKENS)
+        self.assertEqual(llm.kwargs["reasoning"], LLM_REASONING)
         self.assertNotIn("OPENAI" + "_API_KEY", llm.kwargs)
 
     def test_get_llm_missing_openrouter_key_raises_clear_error(self) -> None:
