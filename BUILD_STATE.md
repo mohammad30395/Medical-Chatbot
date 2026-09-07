@@ -1923,3 +1923,132 @@ Completion timestamp: 2026-09-07 01:48:24 +06
 ## Next Expected Phase
 
 - Phase 15, only when explicitly requested.
+
+---
+
+## Phase 15 - Test Suite
+
+Status: PASS
+Completion timestamp: 2026-09-07 11:32:02 +06
+
+## Scope
+
+- Audited tests under `tests/`.
+- Added pytest as the project test runner dependency.
+- Added `pytest.ini`.
+- Ensured default `pytest -q` does not call Pinecone or OpenRouter.
+- Marked integration tests with `pytest.mark.integration`.
+- Added automatic integration skips unless `RUN_INTEGRATION_TESTS=1`.
+- Added opt-in integration coverage for Pinecone index checks, top-k retrieval, and one OpenRouter smoke generation.
+- Preserved existing unittest-compatible tests.
+- Did not run quota-consuming OpenRouter integration tests automatically.
+- Did not change application behavior outside test-runner integration boundaries.
+
+## Unit Coverage Verified
+
+- Configuration defaults and secret validation: covered.
+- PDF loader no-file behavior: covered.
+- Chunk size 500 and overlap 20: covered.
+- Metadata preservation: covered.
+- Embedding dimension verification logic with mocked embeddings: covered.
+- Retriever `k=3`: covered.
+- System prompt context grounding and unknown-answer rule: covered.
+- `answer_question()` input validation: covered.
+- Flask GET `/`: covered.
+- Flask POST `/get` success with mocked RAG: covered.
+- Flask invalid input: covered.
+- Health endpoint: covered.
+- Secret-safe errors: covered.
+
+## Integration Test Contract
+
+- Integration tests are marked with `@pytest.mark.integration`.
+- Integration tests skip unless `RUN_INTEGRATION_TESTS=1`.
+- When enabled, integration tests verify:
+  - Pinecone connectivity.
+  - Pinecone index dimension and metric.
+  - Top-k retrieval.
+  - At most one OpenRouter generation request through `smoke_test_llm()`.
+
+## Files Changed In Phase 15
+
+- `pytest.ini`
+- `requirements.txt`
+- `requirements.lock.txt`
+- `tests/test_rag.py`
+- `tests/test_integration.py`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 15
+
+- `pwd && rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 180 BUILD_STATE.md`
+- `.venv/bin/python -m pip show pytest pytest-mock 2>/dev/null || true`
+- `.venv/bin/python -m pip list --format=columns | sed -n '1,220p'`
+- `sed -n '1,240p' requirements.txt`
+- `sed -n '1,280p' tests/test_helper.py`
+- `sed -n '1,320p' tests/test_indexing.py`
+- `sed -n '1,260p' requirements.lock.txt`
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN || true`
+- `sed -n '1,260p' setup.py`
+- `find . -maxdepth 2 -type f \( -name 'pytest.ini' -o -name 'pyproject.toml' -o -name 'setup.cfg' -o -name 'tox.ini' \) -print`
+- `.venv/bin/python -m pip install pytest`
+- `.venv/bin/python - <<'PY' ... import pytest and print version ... PY`
+- `.venv/bin/python -m pip freeze`
+- `.venv/bin/python -m pip freeze > requirements.lock.txt`
+- `env | rg '^RUN_INTEGRATION_TESTS=' || true`
+- `.venv/bin/python -m py_compile tests/test_integration.py tests/test_rag.py`
+- `.venv/bin/pytest -q`
+- `sed -n '1,220p' pytest.ini`
+- `sed -n '1,260p' tests/test_integration.py`
+- `rg -n 'RUN_INTEGRATION_TESTS|pytest.mark.integration|smoke_test_llm|check_pinecone_index|get_retriever' tests`
+- `.venv/bin/pytest -q --collect-only`
+- `.venv/bin/python -m pip check`
+- `.venv/bin/python - <<'PY' ... import pytest and print version ... PY`
+- `git diff --check`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' 'ChatOpenAI|OPENAI_API_KEY' app.py src tests scripts store_index.py template.py setup.py README.md .env.example templates static pytest.ini requirements.txt`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `git diff -- pytest.ini requirements.txt requirements.lock.txt tests/test_rag.py tests/test_integration.py tests/test_app.py`
+- `git status --short --untracked-files=all`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `.venv/bin/python - <<'PY' ... non-secret configuration presence check ... PY`
+- `rg -n 'vector_count|indexed data|indexed|upsert|namespace.*vector|5860' BUILD_STATE.md | tail -n 20`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' \) -delete`
+- `git diff --check`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' 'ChatOpenAI|OPENAI_API_KEY' app.py src tests scripts store_index.py template.py setup.py README.md .env.example templates static pytest.ini requirements.txt`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!BUILD_STATE.md' --glob '!requirements.lock.txt' ...`
+- `git status --short --untracked-files=all`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -print`
+- `tail -n 130 BUILD_STATE.md`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Dependency environment inspected before adding pytest: pass.
+- Dependency changed: added `pytest`.
+- Post-dependency import check: pass, pytest 9.1.1.
+- `requirements.lock.txt` refreshed with exact installed versions: pass.
+- `tests/test_integration.py` syntax validation: pass.
+- `tests/test_rag.py` syntax validation: pass.
+- Default `pytest -q`: pass.
+- Default `pytest -q` result: 62 passed, 3 skipped, 15 subtests passed.
+- Default `pytest -q` did not call Pinecone or OpenRouter: pass, integration tests skipped.
+- Pytest collection: pass, 65 tests collected.
+- Integration tests are clearly marked: pass.
+- Integration tests skip unless `RUN_INTEGRATION_TESTS=1`: pass.
+- `pip check`: pass.
+- `ChatOpenAI` / `OPENAI_API_KEY` scoped source scan: pass.
+- Secret-shaped value scan outside `.git`, outside `.venv`, outside `.env`, and excluding `BUILD_STATE.md`: pass.
+- Source tree bytecode/cache artifacts removed outside `.venv`: pass.
+- `git diff --check`: pass.
+
+## Unresolved Issues
+
+- Opt-in integration suite was not run because it can consume OpenRouter quota.
+- Non-secret config presence check shows Pinecone and OpenRouter key fields are populated.
+- Earlier build-state records show namespace vector count of 5860, so indexed data appears to exist.
+- Default pytest emits the existing `langchain-community` deprecation warning from the PDF loader import. The installed loader path still resolves through `langchain_community` in this environment.
+
+## Next Expected Phase
+
+- Phase 16, only when explicitly requested.

@@ -2,11 +2,13 @@
 
 import contextlib
 import io
+import os
 import sys
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 
@@ -385,6 +387,11 @@ class SmokeScriptTests(unittest.TestCase):
         self.assertEqual(stderr.getvalue(), "")
 
 
+@pytest.mark.integration
+@unittest.skipUnless(
+    os.getenv("RUN_INTEGRATION_TESTS") == "1",
+    "Set RUN_INTEGRATION_TESTS=1 to run Pinecone integration tests.",
+)
 class RagIntegrationTests(unittest.TestCase):
     def test_retriever_returns_one_to_three_documents_when_pinecone_available(self) -> None:
         try:
