@@ -87,6 +87,29 @@ python -m pip install -e .
 
 `requirements.lock.txt` records the exact versions installed in the verified local environment.
 
+## Convenience Commands
+
+Verify local files, expected environment variable names, Python version, and PDF presence without printing secret values:
+
+```bash
+python scripts/check_env.py
+```
+
+Optionally include a Pinecone index check:
+
+```bash
+python scripts/check_env.py --check-pinecone
+```
+
+Other common local commands:
+
+```bash
+python store_index.py --check-index
+python store_index.py --ingest
+python app.py
+pytest -q
+```
+
 ## Create `.env`
 
 Create `.env` from the example file:

@@ -2419,3 +2419,242 @@ Completion timestamp: 2026-09-07 12:09:41 +06
 ## Next Expected Phase
 
 - Phase 18, only when explicitly requested.
+
+---
+
+## Phase 18 - Final Audit
+
+Status: PASS
+Completion timestamp: 2026-09-07 12:17:14 +06
+
+## Scope
+
+- Performed final repository audit only.
+- Did not add new features.
+- Did not deploy anything.
+- Did not push to GitHub.
+- Did not stage or commit files.
+- Did not print `.env` values.
+- Did not call Pinecone or OpenRouter.
+
+## Audit Results
+
+| Requirement | Result | Evidence |
+| --- | --- | --- |
+| Git repository exists | PASS | `git rev-parse --is-inside-work-tree` returned true. |
+| `git status` checked | PASS | Checked before and during audit. |
+| Accidental `.env` tracking | PASS | `.env` is ignored and not tracked. |
+| API-key-looking strings in tracked files | PASS | Tracked-file secret-shaped scan found no values. |
+| `data/*.pdf` tracking | PASS | `data/Medical_book.pdf` exists but is ignored and not tracked. |
+| Pycache and pytest cache cleanup | PASS | Removed `__pycache__`, `*.pyc`, and `.pytest_cache` outside `.venv`. |
+| Model cache files in repo | PASS | No model cache directory found outside `.venv`. |
+| Large generated artifacts | PASS | Only large repo-tree file found was ignored source data PDF `data/Medical_book.pdf` at 15M. |
+| Stale imports | PASS with limitation | `compileall`, import sanity, and tests passed; `ruff` was not installed, so no unused-import linter was run. |
+| Unused `ChatOpenAI` source usage | PASS | No `ChatOpenAI` import or instantiation in app source. |
+| `OPENAI_API_KEY` source usage | PASS | No runtime use; references are documentation, tests, or audit history only. |
+| Obsolete `pinecone-client` dependency | PASS | No `pinecone-client` in requirements, lock file, setup, source, or tests. |
+| Chunk size constant | PASS | `CHUNK_SIZE = 500`. |
+| Chunk overlap constant | PASS | `CHUNK_OVERLAP = 20`. |
+| Embedding model constant | PASS | `sentence-transformers/all-MiniLM-L6-v2`. |
+| Embedding/index dimension | PASS | 384. |
+| Pinecone index name | PASS | Default `medical-bot`. |
+| Pinecone metric | PASS | `cosine`. |
+| Retriever top-k | PASS | `RETRIEVER_SEARCH_KWARGS = {"k": 3}`. |
+| Flask routes | PASS | `/`, `/get`, and `/health` exist. |
+| OpenRouter variables | PASS | `.env.example` and config use `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`. |
+| `ChatOpenRouter` usage | PASS | `src/rag.py` imports `ChatOpenRouter` from `langchain_openrouter`. |
+| Default `pytest -q` offline | PASS | `pytest -q` passed with integration tests skipped. |
+| `requirements.lock.txt` exists | PASS | File exists and is tracked. |
+| README commands match code | PASS | README commands match `store_index.py --help`, app entry point, and pytest configuration. |
+| `BUILD_STATE.md` has all phases | PASS | Phases 01 through 17 were present before this Phase 18 entry; Phase 18 is now recorded. |
+
+## Architecture Requirement Report
+
+| Architecture Requirement | PASS/FAIL |
+| --- | --- |
+| PDF input from `data/` only | PASS |
+| PDF loader layer present | PASS |
+| 500/20 document chunks | PASS |
+| Local `all-MiniLM-L6-v2` embeddings | PASS |
+| 384-dimensional vectors | PASS |
+| Pinecone index `medical-bot` | PASS |
+| Pinecone cosine metric | PASS |
+| Namespace-separated indexing | PASS |
+| Deterministic vector IDs for idempotent ingestion | PASS |
+| Top-3 retriever | PASS |
+| OpenRouter LLM through `ChatOpenRouter` | PASS |
+| No `ChatOpenAI` runtime client | PASS |
+| Flask UI and `/get` backend route | PASS |
+| Default offline test suite | PASS |
+| Secret-safe frontend | PASS |
+| Educational medical disclaimer | PASS |
+
+## Remaining Manual Steps
+
+- Keep `.env` local and fill it only with your own Pinecone and OpenRouter keys.
+- Keep using only legally obtained PDFs in `data/`.
+- Re-index after changing PDFs or after clearing the configured namespace.
+- Run integration tests only when you intentionally want to spend external service quota.
+
+## Known Free-Tier Limitations
+
+- OpenRouter free models are rate-limited and availability can change.
+- The configured `openrouter/free` model selector may choose a model with small context or parameter limits.
+- Pinecone Starter limits can change, including region availability and vector/storage quotas.
+- The first local sentence-transformer embedding call can download model files and may be slow.
+
+## Safe To Commit
+
+- No files were staged automatically.
+- Safe commit candidates after this audit: `BUILD_STATE.md` only.
+
+## Exact App Start Command
+
+```bash
+source .venv/bin/activate
+python app.py
+```
+
+## Exact PDF Re-Index Command
+
+```bash
+source .venv/bin/activate
+python store_index.py --ingest
+```
+
+## Commands Run In Phase 18
+
+- `pwd; git status --short --untracked-files=all`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `rg -n '^## Phase|^# |Status:|Next Expected Phase|Unresolved Issues' BUILD_STATE.md`
+- `test -f BUILD_STATE.md && printf 'BUILD_STATE.md exists\n'; test -f requirements.lock.txt && printf 'requirements.lock.txt exists\n'; test -f .env && printf '.env exists\n'; test -f .env.example && printf '.env.example exists\n'`
+- `git rev-parse --is-inside-work-tree; git status --short --untracked-files=all; git ls-files .env .env.example 'data/*.pdf' 'data/*.PDF' requirements.txt requirements.lock.txt`
+- `rg -n 'ChatOpenAI|OPENAI_API_KEY|pinecone-client|PINECONE_INDEX_NAME|medical-bot|cosine|CHUNK_SIZE = 500|CHUNK_OVERLAP = 20|all-MiniLM-L6-v2|EXPECTED_EMBEDDING_DIMENSION = 384|RETRIEVER_SEARCH_KWARGS = \{"k": 3\}|@app\.(get|post)\("/(get)?"' app.py src tests requirements.txt requirements.lock.txt README.md .env.example store_index.py setup.py pytest.ini`
+- `find . -path './.git' -prune -o -path './.venv' -prune -o \( -type d -name '__pycache__' -o -type d -name '.pytest_cache' -o -type d -name 'models' -o -type d -name '.cache' -o -type f -size +10M \) -print | sort`
+- `sed -n '1,260p' README.md; .venv/bin/python store_index.py --help`
+- `.venv/bin/python -m compileall app.py src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python - <<'PY' ... import sanity check ... PY`
+- `.venv/bin/python -m pip check; .venv/bin/python -m pip freeze | rg -i '^(pinecone|pinecone-client|langchain|flask|python-dotenv|pypdf|sentence-transformers|openrouter)'`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `.venv/bin/python - <<'PY' ... tracked secret-shaped scan without values ... PY`
+- `printf 'tracked env/pdf files:\n'; git ls-files .env '.env*' 'data/*.pdf' 'data/*.PDF'; printf '\nOpenAI/OpenRouter/Pinecone dependency refs:\n'; rg -n 'ChatOpenAI|OPENAI_API_KEY|pinecone-client|from langchain_openrouter import ChatOpenRouter|OPENROUTER_API_KEY|OPENROUTER_MODEL' $(git ls-files ':!:requirements.lock.txt')`
+- `.venv/bin/python - <<'PY' ... constants and routes check ... PY`
+- `git ls-files -ci --exclude-standard; git ls-files -oi --exclude-standard | sort | sed -n '1,120p'`
+- `git diff -- README.md BUILD_STATE.md | sed -n '1,220p'; git diff --name-only`
+- `git log --oneline -5 -- README.md BUILD_STATE.md 2>/dev/null || true`
+- `git status --short --untracked-files=all --ignored=matching | sed -n '1,160p'`
+- `rg -n '^pinecone-client\b|pinecone-client' requirements.txt requirements.lock.txt setup.py .env.example README.md src tests || true`
+- `rg -n 'RUN_INTEGRATION_TESTS|pytestmark|pytest.mark.integration|skip' tests/test_integration.py pytest.ini`
+- `git diff --stat; git status --short --untracked-files=all`
+- `ls -lh data/*.pdf 2>/dev/null || true; git ls-files 'data/*.pdf' 'data/*.PDF'`
+- `date '+%Y-%m-%d %H:%M:%S %Z'; git diff --name-only; git diff --cached --name-only`
+
+## Tests and Acceptance Checks
+
+- `python -m compileall`: pass.
+- `pytest -q`: pass, 63 passed, 3 skipped, 1 warning, 15 subtests passed.
+- Dependency sanity: pass, `pip check` reported no broken requirements.
+- Import sanity: pass for Flask, dotenv, pypdf, sentence-transformers, LangChain packages, OpenRouter, Pinecone, app modules, and required symbols.
+- Secret scan: pass, tracked-file scan found no secret-shaped values.
+- Cache cleanup: pass, cache files removed outside `.venv`; later import checks recreated no persistent tracked cache files.
+- Git staging: pass, no files staged automatically.
+
+## Unresolved Issues
+
+- The default test suite still emits the existing `langchain-community` deprecation warning from the PyPDFLoader import.
+- `ruff` is not installed, so unused-import linting was not run.
+- Legal provenance of `data/Medical_book.pdf` remains the user's responsibility.
+
+## Next Expected Phase
+
+- No next build phase specified. Await explicit user direction.
+
+---
+
+## Optional Phase 19 - Local Convenience Commands
+
+Status: PASS
+Completion timestamp: 2026-09-07 12:31:59 +06
+
+## Scope
+
+- Added a cross-platform Python environment checker at `scripts/check_env.py`.
+- Kept core architecture unchanged.
+- Did not add desktop installers, Docker, cloud deployment, background services, or new app features.
+- Did not change dependencies.
+- Did not call OpenRouter.
+- Did not call Pinecone by default; Pinecone validation is available only with explicit `--check-pinecone`.
+- Did not print `.env` secret values.
+- Staged nothing.
+
+## Convenience Commands
+
+- Environment verification: `python scripts/check_env.py`
+- Optional Pinecone verification: `python scripts/check_env.py --check-pinecone`
+- Index check: `python store_index.py --check-index`
+- Safe indexing: `python store_index.py --ingest`
+- Flask startup: `python app.py`
+- Offline tests: `pytest -q`
+
+## Files Changed In Optional Phase 19
+
+- `scripts/check_env.py`
+- `tests/test_check_env_script.py`
+- `README.md`
+- `BUILD_STATE.md`
+
+## Commands Run In Optional Phase 19
+
+- `pwd; git status --short --untracked-files=all`
+- `rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 180 BUILD_STATE.md`
+- `sed -n '1,280p' README.md; sed -n '1,220p' store_index.py; sed -n '1,260p' app.py`
+- `sed -n '1,260p' tests/test_config.py; sed -n '1,220p' tests/test_app.py`
+- `sed -n '1,220p' setup.py; sed -n '1,180p' .env.example; sed -n '1,140p' .gitignore`
+- `sed -n '1,260p' scripts/smoke_test.py`
+- `git status --short --untracked-files=all; git diff --name-only`
+- `.venv/bin/python scripts/check_env.py`
+- `.venv/bin/pytest -q tests/test_check_env_script.py`
+- `.venv/bin/python -m compileall scripts/check_env.py tests/test_check_env_script.py`
+- `rg -n 'Convenience Commands|scripts/check_env.py|--check-pinecone|store_index.py --ingest|pytest -q' README.md scripts/check_env.py tests/test_check_env_script.py`
+- `.venv/bin/pytest -q tests/test_check_env_script.py`
+- `.venv/bin/python -m compileall app.py src tests scripts store_index.py template.py`
+- `.venv/bin/python scripts/check_env.py`
+- `.venv/bin/python - <<'PY' ... phase 19 import sanity check ... PY`
+- `.venv/bin/pytest -q`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan for tracked and untracked non-ignored files ... PY`
+- `git status --short --untracked-files=all; git diff --name-only; git diff --cached --name-only`
+- `.venv/bin/python -m pip check`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} + && find . -path './.git' -prune -o -path './.venv' -prune -o \( -type d -name '__pycache__' -o -type d -name '.pytest_cache' -o -type f -name '*.pyc' \) -print | sort`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `git status --short --untracked-files=all`
+
+## Tests and Acceptance Checks
+
+- Repository, `BUILD_STATE.md`, and existing files inspected first: pass.
+- Work limited to Optional Phase 19 convenience commands: pass.
+- `scripts/check_env.py` verifies required files and environment variable names: pass.
+- `scripts/check_env.py` does not print secret values: pass.
+- `scripts/check_env.py` does not call OpenRouter: pass.
+- `scripts/check_env.py` does not call Pinecone unless `--check-pinecone` is passed: pass.
+- README updated with convenience commands: pass.
+- Targeted checker tests: pass, 4 passed.
+- `python -m compileall`: pass.
+- Default `pytest -q`: pass, 67 passed, 3 skipped, 1 warning, 15 subtests passed.
+- Dependency sanity: pass, `pip check` reported no broken requirements.
+- Import sanity: pass.
+- Secret-shaped scan for tracked and untracked non-ignored files: pass.
+- `git diff --check`: pass.
+- Cache cleanup outside `.venv`: pass.
+- Git staging: pass, no files staged.
+
+## Unresolved Issues
+
+- Default pytest still emits the existing `langchain-community` deprecation warning from the PyPDFLoader import.
+- Legal provenance of `data/Medical_book.pdf` remains the user's responsibility.
+
+## Next Expected Phase
+
+- No next build phase specified. Await explicit user direction.
