@@ -4711,6 +4711,77 @@ Completion timestamp: 2026-09-08 00:20:14 +06
 
 ---
 
+## Deployment Phase 25 - Preview Smoke Validation Continuation
+
+Status: BLOCKED
+Completion timestamp: 2026-09-08 00:25:56 +06
+
+## Scope
+
+- Continued Phase 25 Preview smoke validation only.
+- Did not modify Production.
+- Did not deploy Production.
+- Did not send traffic to the Production URL.
+- Did not run `store_index.py`.
+- Did not call OpenRouter, Pinecone, or Hugging Face hosted inference.
+- Did not print secret values.
+
+## Findings
+
+- Preview environment variable visibility passes. Vercel reports `HF_TOKEN`, `EMBEDDINGS_PROVIDER`, `HUGGINGFACE_EMBEDDING_MODEL`, `HUGGINGFACE_TIMEOUT_SECONDS`, and `HUGGINGFACE_INFERENCE_PROVIDER` visible to Preview with encrypted values only.
+- Vercel still reports zero Preview deployments for the linked `medical-chatbot` project.
+- The newest deployments are `target=production`, not Preview.
+- The latest Production deployment inspected was `https://medical-chatbot-ladk601nd.vercel.app`, aliased by `https://medical-chatbot-nine-topaz.vercel.app`. It was inspected only to confirm deployment target; no Production route smoke requests were made.
+- Because no Preview deployment exists, there is no Preview URL for `/health`, `/`, static CSS, or `/get` validation.
+- Because no Preview runtime exists, runtime receipt of `HF_TOKEN` cannot be verified.
+
+## Files Changed In Preview Smoke Validation Continuation
+
+- `BUILD_STATE.md`
+
+## Commands Run In Preview Smoke Validation Continuation
+
+- `git status --short --untracked-files=all`
+- `tail -n 220 BUILD_STATE.md`
+- `vercel env ls preview --project medical-chatbot --no-color`
+- `vercel ls medical-chatbot --environment preview --format json --no-color`
+- `vercel ls --all --environment preview --status READY --format json --no-color`
+- `vercel ls medical-chatbot --limit 10 --no-color`
+- `vercel ls medical-chatbot --environment production --limit 3 --format json --no-color`
+- `vercel inspect medical-chatbot-nine-topaz.vercel.app --no-color`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- Preview environment variable visibility: pass.
+- Preview deployment existence check: blocked, zero Preview deployments found.
+- Preview `/health`: not run, no Preview URL exists.
+- Preview `/`: not run, no Preview URL exists.
+- Preview `/get`: not run, no Preview URL exists.
+- Hugging Face embeddings through Preview runtime: not verifiable, no Preview runtime exists.
+- Pinecone retrieval through Preview runtime: not verifiable, no Preview runtime exists.
+- OpenRouter response through Preview runtime: not verifiable, no Preview runtime exists.
+
+## Blockers
+
+- No Vercel Preview deployment exists for `medical-chatbot`.
+- Recent deployments were created as Production deployments, so they cannot satisfy Phase 25 Preview acceptance.
+
+## Vercel Action Required
+
+- Create a non-production Preview deployment for the linked `medical-chatbot` project.
+- Do not use `vercel deploy --prod` for the Preview phase.
+
+## User Action Required
+
+- Provide the actual Preview URL if Vercel shows one in the dashboard but the CLI cannot see it under this linked project/scope.
+
+## Next Expected Phase
+
+- Retry Phase 25 Preview smoke validation after a Preview deployment URL exists.
+
+---
+
 ## Deployment Phase 25 - Vercel Preview Deployment
 
 Status: BLOCKED
