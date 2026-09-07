@@ -195,6 +195,20 @@ class SettingsTests(unittest.TestCase):
             self.assertEqual(settings.pinecone_index_name, "medical-bot")
             self.assertEqual(settings.openrouter_model, "openrouter/free")
 
+    def test_vercel_environment_forces_flask_debug_false(self) -> None:
+        settings = load_settings(
+            environ={
+                "VERCEL": "1",
+                "FLASK_DEBUG": "true",
+                "FLASK_HOST": "0.0.0.0",
+                "FLASK_PORT": "9999",
+            }
+        )
+
+        self.assertFalse(settings.flask_debug)
+        self.assertEqual(settings.flask_host, "0.0.0.0")
+        self.assertEqual(settings.flask_port, 9999)
+
 
 if __name__ == "__main__":
     unittest.main()

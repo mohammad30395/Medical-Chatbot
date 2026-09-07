@@ -36,6 +36,7 @@ class FlaskBackendTests(unittest.TestCase):
         self.assertIn(f'maxlength="{MAX_QUESTION_CHARS}"', body)
         self.assertNotIn("OPENROUTER_API_KEY", body)
         self.assertNotIn("PINECONE_API_KEY", body)
+        self.assertNotIn("HF_TOKEN", body)
 
     def test_static_style_returns_200(self) -> None:
         response = self.client.get("/static/style.css")

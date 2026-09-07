@@ -149,6 +149,11 @@ class Settings:
         embeddings_provider = _normalize_embeddings_provider(
             _get(mapping, "EMBEDDINGS_PROVIDER", DEFAULT_EMBEDDINGS_PROVIDER)
         )
+        flask_debug = (
+            DEFAULT_FLASK_DEBUG
+            if is_vercel_environment(mapping)
+            else parse_bool(mapping.get("FLASK_DEBUG"), default=DEFAULT_FLASK_DEBUG)
+        )
         return cls(
             pinecone_api_key=mapping.get("PINECONE_API_KEY") or "",
             pinecone_index_name=_get(
@@ -165,9 +170,7 @@ class Settings:
             ),
             flask_host=_get(mapping, "FLASK_HOST", DEFAULT_FLASK_HOST),
             flask_port=_get_int(mapping, "FLASK_PORT", DEFAULT_FLASK_PORT),
-            flask_debug=parse_bool(
-                mapping.get("FLASK_DEBUG"), default=DEFAULT_FLASK_DEBUG
-            ),
+            flask_debug=flask_debug,
             data_dir=_get(mapping, "DATA_DIR", DEFAULT_DATA_DIR),
             embeddings_provider=embeddings_provider,
             hf_token=mapping.get("HF_TOKEN") or "",

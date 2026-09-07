@@ -4463,3 +4463,98 @@ Completion timestamp: 2026-09-07 22:52:16 +06
 ## Next Expected Phase
 
 - Deployment smoke test is complete. Do not proceed to another phase unless explicitly requested.
+
+---
+
+## Deployment Phase 23 - Vercel Environment Configuration
+
+Status: PASS
+Completion timestamp: 2026-09-07 22:59:21 +06
+
+## Scope
+
+- Audited Vercel environment handling without changing the app architecture.
+- Preserved local `python app.py` behavior.
+- Did not deploy.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not call Hugging Face hosted inference.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Changes
+
+- Updated Vercel settings loading so `FLASK_DEBUG` is forced false when running inside Vercel, even if a Vercel environment variable is accidentally set truthy.
+- Kept `FLASK_HOST` and `FLASK_PORT` available for local `python app.py`; Vercel import still does not call `app.run()`.
+- Added `docs/VERCEL_ENV.md` documenting server-side Vercel variable names, secret classification, recommended scopes, and purposes without variable values.
+- Added tests for Vercel debug behavior, Vercel env documentation, and browser secret-name non-exposure.
+
+## Vercel Environment Audit
+
+- Local `.vercel/project.json` is absent, so the folder is not linked locally.
+- Vercel CLI is available and project variable names were inspected by explicit project name only.
+- Vercel reported encrypted values only; no secret values were printed.
+- Existing Vercel production variable names include the required Pinecone, OpenRouter, Hugging Face hosted embedding, and local-development compatibility names.
+
+## Browser Secret Boundary
+
+- Browser code uses relative Flask route `/get`.
+- Browser code does not call Pinecone, Hugging Face, or OpenRouter directly.
+- Rendered `/` and `/health` test responses did not expose `PINECONE_API_KEY`, `OPENROUTER_API_KEY`, or `HF_TOKEN`.
+
+## Files Changed In Deployment Phase 23
+
+- `BUILD_STATE.md`
+- `docs/VERCEL_ENV.md`
+- `src/config.py`
+- `tests/test_app.py`
+- `tests/test_config.py`
+- `tests/test_deployment_config.py`
+
+## Commands Run In Deployment Phase 23
+
+- `git status --short --untracked-files=all`
+- `tail -n 180 BUILD_STATE.md`
+- `sed -n '1,280p' src/config.py && sed -n '1,220p' app.py && sed -n '1,120p' api/index.py`
+- `sed -n '1,220p' vercel.json && sed -n '1,220p' .env.example && sed -n '1,220p' templates/chat.html && sed -n '1,160p' public/static/style.css`
+- `sed -n '1,260p' tests/test_config.py && sed -n '1,240p' tests/test_vercel_entrypoint.py && sed -n '1,200p' tests/test_deployment_config.py`
+- `test -d docs && find docs -maxdepth 2 -type f -print | sort || true`
+- `rg -n "OPENROUTER_API_KEY|PINECONE_API_KEY|HF_TOKEN|process\\.env|import\\.meta\\.env|os\\.environ|FLASK_DEBUG|FLASK_HOST|FLASK_PORT|app\\.run|store_index" app.py api src templates static public tests scripts vercel.json README.md .env.example`
+- `.venv/bin/pytest -q tests/test_config.py tests/test_deployment_config.py tests/test_app.py tests/test_vercel_entrypoint.py`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `test -f .vercel/project.json && printf 'local_vercel_linked=true\n' || printf 'local_vercel_linked=false\n'; vercel env ls production --project medical-chatbot --no-color`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m pip check`
+- `VERCEL=1 FLASK_DEBUG=true EMBEDDINGS_PROVIDER=huggingface_api PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter HF_TOKEN=placeholder-hf .venv/bin/python - <<'PY' ... api.index import and route check ... PY`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- Focused tests: pass, 34 passed, 12 subtests passed.
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 93 passed, 3 skipped, 16 subtests passed.
+- `pip check`: pass, no broken requirements.
+- Vercel-style import/config check: pass; `FLASK_DEBUG=true` in a Vercel-like environment still loaded as `flask_debug=False`.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- None for this phase.
+
+## Vercel Action Required
+
+- If any Vercel environment variable is added or changed later, redeploy production so the new values are applied.
+- Add secrets only through Vercel Project -> Settings -> Environment Variables.
+
+## Next Expected Phase
+
+- None. Do not proceed to another deployment phase unless explicitly requested.
