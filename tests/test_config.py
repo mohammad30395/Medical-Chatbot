@@ -120,6 +120,19 @@ class SettingsTests(unittest.TestCase):
         settings.validate_for_runtime()
         self.assertEqual(settings.missing_runtime_secret_names(), [])
 
+    def test_remote_embedding_runtime_validation_rejects_provider_as_model(self) -> None:
+        settings = Settings(
+            pinecone_api_key="present",
+            openrouter_api_key="present",
+            embeddings_provider=REMOTE_EMBEDDINGS_PROVIDER,
+            hf_token="present",
+            huggingface_embedding_model="hf-inference",
+            huggingface_inference_provider="hf-inference",
+        )
+
+        with self.assertRaisesRegex(ConfigurationError, "HUGGINGFACE_EMBEDDING_MODEL"):
+            settings.validate_for_runtime()
+
     def test_embedding_provider_aliases_and_invalid_values(self) -> None:
         settings = load_settings(environ={"EMBEDDINGS_PROVIDER": "hf_api"})
 

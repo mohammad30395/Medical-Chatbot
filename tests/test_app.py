@@ -185,6 +185,30 @@ class FlaskBackendTests(unittest.TestCase):
         self.assertNotIn("openrouter-secret", response.get_data(as_text=True))
         mock_load_settings.assert_called_once_with(create_env_file=False)
 
+    @patch(
+        "app.load_settings",
+        return_value=Settings(
+            pinecone_api_key="pinecone-secret",
+            openrouter_api_key="openrouter-secret",
+            embeddings_provider="huggingface_api",
+            hf_token="hf-secret",
+            huggingface_embedding_model="hf-inference",
+            huggingface_inference_provider="hf-inference",
+        ),
+    )
+    def test_health_reports_invalid_remote_embedding_model(
+        self,
+        mock_load_settings,
+    ) -> None:
+        response = self.client.get("/health")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertFalse(payload["runtime_configuration_present"])
+        self.assertIn("HUGGINGFACE_EMBEDDING_MODEL", payload["configuration_error"])
+        self.assertNotIn("hf-secret", response.get_data(as_text=True))
+        mock_load_settings.assert_called_once_with(create_env_file=False)
+
 
 if __name__ == "__main__":
     unittest.main()

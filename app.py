@@ -54,6 +54,14 @@ def _runtime_configuration_status() -> dict[str, Any]:
         }
 
     missing = _missing_runtime_variables(settings)
+    try:
+        settings.validate_for_runtime()
+    except ConfigurationError as exc:
+        return {
+            "runtime_configuration_present": False,
+            "missing": missing,
+            "configuration_error": str(exc),
+        }
     return {
         "runtime_configuration_present": not missing,
         "missing": missing,

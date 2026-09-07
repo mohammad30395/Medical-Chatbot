@@ -96,8 +96,9 @@ class HuggingFaceAPIEmbeddings:
 
                 factory = InferenceClient
             self._client = factory(
+                model=self.model,
                 provider=self.provider,
-                api_key=self.api_key,
+                token=self.api_key,
                 timeout=self.timeout_seconds,
             )
         return self._client

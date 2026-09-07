@@ -3615,3 +3615,232 @@ Completion timestamp: 2026-09-07 17:55:41 +06
 ## Next Expected Phase
 
 - Resume the controlled Strategy B Vercel deployment smoke test after the repository is linked to the intended Vercel project and server-side Vercel environment variables are configured.
+
+---
+
+## Deployment Phase 23 Retry - Controlled Strategy B Vercel Deployment Smoke Test
+
+Status: BLOCKED
+Completion timestamp: 2026-09-07 18:11:57 +06
+
+## Scope
+
+- Retried the controlled Strategy B smoke test after the user reported the repository was already deployed on Vercel.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not call Hugging Face hosted inference.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Deployment Found
+
+- Vercel CLI authentication works.
+- Project discovered by name: `medical-chatbot`.
+- Production alias: `https://medical-chatbot-nine-topaz.vercel.app`
+- Direct deployment URL: `https://medical-chatbot-1nv7zdhpk.vercel.app`
+- Deployment status: Ready.
+- Vercel build output reports Python function size: 50.45 MB.
+- Local `.vercel/project.json` is still absent, so this folder is not linked locally even though the Vercel project exists remotely.
+
+## Vercel Smoke Checks
+
+- `GET /health`: HTTP 200, valid JSON, status `ok`, no secret-looking values exposed.
+- `GET /`: HTTP 200, chat title and disclaimer present, no secret-looking values exposed.
+- `GET /static/style.css`: HTTP 200.
+- Deployed `/get` was intentionally not called because production is missing the Strategy B remote embedding environment variables, so the request path would not be configured correctly and could waste quota or return a predictable runtime failure.
+
+## Vercel Environment Audit
+
+Configured in Vercel production:
+
+- `PINECONE_API_KEY`
+- `PINECONE_INDEX_NAME`
+- `PINECONE_CLOUD`
+- `PINECONE_REGION`
+- `PINECONE_NAMESPACE`
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL`
+- `FLASK_HOST`
+- `FLASK_PORT`
+- `FLASK_DEBUG`
+- `DATA_DIR`
+
+Missing for Strategy B on Vercel:
+
+- `EMBEDDINGS_PROVIDER=huggingface_api`
+- `HF_TOKEN`
+- `HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`
+- `HUGGINGFACE_INFERENCE_PROVIDER=hf-inference`
+- `HUGGINGFACE_TIMEOUT_SECONDS=15`
+
+## Files Changed In Deployment Phase 23 Retry
+
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 23 Retry
+
+- `git status --short --untracked-files=all`
+- `tail -n 180 BUILD_STATE.md`
+- `find . -maxdepth 3 -type f | sort | sed 's#^./##' | head -n 240`
+- `vercel env ls production --project medical-chatbot --no-color`
+- `vercel inspect medical-chatbot-nine-topaz.vercel.app --no-color`
+- `test -f .vercel/project.json && sed -n '1,120p' .vercel/project.json || true`
+- `curl -sS -D /tmp/medical_chatbot_vercel_health_headers.txt -o /tmp/medical_chatbot_vercel_health.json https://medical-chatbot-nine-topaz.vercel.app/health`
+- `curl -sS -D /tmp/medical_chatbot_vercel_home_headers.txt -o /tmp/medical_chatbot_vercel_home.html https://medical-chatbot-nine-topaz.vercel.app/`
+- `curl -sS -D /tmp/medical_chatbot_vercel_static_headers.txt -o /tmp/medical_chatbot_vercel_style.css https://medical-chatbot-nine-topaz.vercel.app/static/style.css`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m pip check`
+- `VERCEL=1 EMBEDDINGS_PROVIDER=huggingface_api PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter HF_TOKEN=placeholder-hf .venv/bin/python - <<'PY' ... api.index import and route check ... PY`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 87 passed, 3 skipped, 16 subtests passed.
+- `pip check`: pass, no broken requirements.
+- Vercel-style `api.index` import and route check: pass, `/` and `/health` returned 200 with placeholder values not exposed.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- Vercel production is missing the Strategy B remote embedding variables. The deployed app is using the slim Vercel bundle, so the chat request path must use Hugging Face hosted embeddings instead of local `sentence-transformers`.
+- `HF_TOKEN` is required for hosted Hugging Face embedding calls and cannot be created safely by code.
+- After adding Vercel environment variables, a new production redeploy is required for the deployment to pick them up.
+
+## Vercel Action Required
+
+- In Vercel project `medical-chatbot`, add these production environment variables:
+  - `EMBEDDINGS_PROVIDER=huggingface_api`
+  - `HF_TOKEN=<your Hugging Face token>`
+  - `HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`
+  - `HUGGINGFACE_INFERENCE_PROVIDER=hf-inference`
+  - `HUGGINGFACE_TIMEOUT_SECONDS=15`
+- Redeploy the production deployment after adding those variables.
+
+## Next Expected Phase
+
+- Resume the controlled Strategy B deployed `/get` smoke test after Vercel production has the Strategy B embedding variables and the app has been redeployed.
+
+---
+
+## Deployment Phase 23 Retry 2 - Strategy B Hosted Embedding Smoke Test
+
+Status: BLOCKED
+Completion timestamp: 2026-09-07 18:27:11 +06
+
+## Scope
+
+- Resumed after the user reported Vercel environment setup was done.
+- Verified the deployed production alias again.
+- Made exactly one deployed `/get` request.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not make repeated OpenRouter requests.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Deployment Findings
+
+- Production alias: `https://medical-chatbot-nine-topaz.vercel.app`
+- Direct deployment URL after redeploy: `https://medical-chatbot-a6x9v8aln.vercel.app`
+- Deployment status: Ready.
+- Vercel build output reports Python function size: 50.45 MB.
+- Strategy B environment variable names are now present in Vercel production for:
+  - `EMBEDDINGS_PROVIDER`
+  - `HF_TOKEN`
+  - `HUGGINGFACE_EMBEDDING_MODEL`
+  - `HUGGINGFACE_TIMEOUT_SECONDS`
+- `HUGGINGFACE_INFERENCE_PROVIDER` was not listed, so the app default of `hf-inference` is used unless it is later configured explicitly.
+
+## Deployed Smoke Result
+
+- `GET /health`: HTTP 200, valid JSON, no secret-looking values exposed.
+- `POST /get`: HTTP 503, sanitized JSON error: `The query embedding service is unavailable.`
+- Vercel logs showed Hugging Face requests ending with `GET https://huggingface.co/api/models/hf-inference` and HTTP 404.
+- Evidence indicates the hosted embedding path is receiving `hf-inference` as a model ID, or the Hugging Face client is not being initialized with the model strongly enough for the deployed runtime.
+
+## Local Fix Implemented
+
+- Updated the hosted Hugging Face embedding adapter to pass `model=` at `InferenceClient` construction time and use the official `token=` argument.
+- Kept the per-call model argument so current `huggingface_hub` behavior remains explicit.
+- Added runtime validation so `HUGGINGFACE_EMBEDDING_MODEL=hf-inference` is rejected with a clear configuration error. The correct model value is `sentence-transformers/all-MiniLM-L6-v2`; `hf-inference` belongs in `HUGGINGFACE_INFERENCE_PROVIDER`.
+- Updated `/health` to run non-network runtime validation and report invalid configuration without exposing secret values.
+
+## Files Changed In Deployment Phase 23 Retry 2
+
+- `BUILD_STATE.md`
+- `app.py`
+- `src/config.py`
+- `src/remote_embeddings.py`
+- `tests/test_app.py`
+- `tests/test_config.py`
+- `tests/test_remote_embeddings.py`
+
+## Commands Run In Deployment Phase 23 Retry 2
+
+- `git status --short --untracked-files=all`
+- `tail -n 220 BUILD_STATE.md`
+- `find . -maxdepth 3 -type f | sort | sed 's#^./##' | head -n 240`
+- `vercel env ls production --project medical-chatbot --no-color`
+- `vercel inspect medical-chatbot-nine-topaz.vercel.app --no-color`
+- `curl -sS -D /tmp/medical_chatbot_vercel_get_headers.txt -o /tmp/medical_chatbot_vercel_get.json -X POST https://medical-chatbot-nine-topaz.vercel.app/get -H 'Content-Type: application/json' --data '{"message":"What are common symptoms of dengue?"}'`
+- `curl -sS -D /tmp/medical_chatbot_vercel_health2_headers.txt -o /tmp/medical_chatbot_vercel_health2.json https://medical-chatbot-nine-topaz.vercel.app/health`
+- `.venv/bin/python - <<'PY' ... sanitized deployed response inspection ... PY`
+- `sed -n '1,260p' app.py && sed -n '1,360p' src/rag.py && sed -n '1,260p' src/remote_embeddings.py`
+- `vercel logs medical-chatbot-nine-topaz.vercel.app --since 10m --no-color`
+- `.venv/bin/python - <<'PY' ... huggingface_hub version and InferenceClient signature inspection ... PY`
+- `.venv/bin/python - <<'PY' ... InferenceClient source inspection ... PY`
+- `sed -n '1,260p' tests/test_remote_embeddings.py && sed -n '1,260p' tests/test_deployment_config.py && sed -n '1,220p' .env.example`
+- `sed -n '1,260p' src/config.py && sed -n '1,180p' src/helper.py`
+- `sed -n '1,260p' tests/test_config.py && sed -n '1,220p' tests/test_app.py`
+- `rg -n "health|runtime_configuration|validate_for_runtime|HUGGINGFACE_EMBEDDING_MODEL|missing_runtime" tests src app.py`
+- `.venv/bin/pytest -q tests/test_remote_embeddings.py tests/test_config.py tests/test_app.py`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m pip check`
+- `VERCEL=1 EMBEDDINGS_PROVIDER=huggingface_api PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter HF_TOKEN=placeholder-hf .venv/bin/python - <<'PY' ... api.index import and route check ... PY`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- Focused tests: pass, 30 passed, 12 subtests passed.
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 89 passed, 3 skipped, 16 subtests passed.
+- `pip check`: pass, no broken requirements.
+- Vercel-style `api.index` import and route check: pass, `/` and `/health` returned 200 with placeholder values not exposed.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- The deployed production app still returns HTTP 503 from `/get` until this local code fix is redeployed.
+- Vercel encrypted environment values cannot be read safely. The log strongly suggests `HUGGINGFACE_EMBEDDING_MODEL` may be set to `hf-inference`; if so, it must be changed to `sentence-transformers/all-MiniLM-L6-v2`.
+
+## Vercel Action Required
+
+- Redeploy the project so Vercel runs the updated `src/remote_embeddings.py`, `src/config.py`, and `app.py`.
+- In Vercel project `medical-chatbot`, verify without exposing values:
+  - `EMBEDDINGS_PROVIDER` is `huggingface_api`
+  - `HUGGINGFACE_EMBEDDING_MODEL` is `sentence-transformers/all-MiniLM-L6-v2`
+  - `HUGGINGFACE_INFERENCE_PROVIDER` is either unset or `hf-inference`
+  - `HF_TOKEN` is a valid Hugging Face token
+
+## Next Expected Phase
+
+- After redeploying this local fix and correcting any model/provider value mixup, resume with one deployed `/health` check and at most one deployed `/get` request.

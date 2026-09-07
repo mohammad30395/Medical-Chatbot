@@ -198,6 +198,7 @@ class Settings:
         self._require("OPENROUTER_API_KEY", self.openrouter_api_key)
         if self.uses_remote_embeddings:
             self._require("HF_TOKEN", self.hf_token)
+            self._validate_remote_embedding_model()
 
     @property
     def uses_remote_embeddings(self) -> bool:
@@ -221,6 +222,21 @@ class Settings:
             raise ConfigurationError(
                 f"Missing required environment variable: {env_var}. "
                 f"Set {env_var} in .env locally or as a Vercel environment variable."
+            )
+
+    def _validate_remote_embedding_model(self) -> None:
+        model = self.huggingface_embedding_model.strip()
+        provider = self.huggingface_inference_provider.strip()
+        if not model:
+            raise ConfigurationError(
+                "Missing required environment variable: HUGGINGFACE_EMBEDDING_MODEL. "
+                f"Set HUGGINGFACE_EMBEDDING_MODEL={DEFAULT_HUGGINGFACE_EMBEDDING_MODEL}."
+            )
+        if model.lower() == provider.lower():
+            raise ConfigurationError(
+                "Invalid HUGGINGFACE_EMBEDDING_MODEL value. "
+                f"Set HUGGINGFACE_EMBEDDING_MODEL={DEFAULT_HUGGINGFACE_EMBEDDING_MODEL} "
+                f"and HUGGINGFACE_INFERENCE_PROVIDER={DEFAULT_HUGGINGFACE_INFERENCE_PROVIDER}."
             )
 
 

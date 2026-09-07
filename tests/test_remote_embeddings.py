@@ -10,9 +10,11 @@ class FakeInferenceClient:
     response = None
     error: Exception | None = None
     calls: list[dict[str, object]] = []
+    instances: list["FakeInferenceClient"] = []
 
     def __init__(self, **kwargs: object) -> None:
         self.kwargs = kwargs
+        self.instances.append(self)
 
     def feature_extraction(self, text: str | list[str], **kwargs: object) -> object:
         if self.error is not None:
@@ -26,6 +28,7 @@ class RemoteEmbeddingTests(unittest.TestCase):
         FakeInferenceClient.response = [0.1] * EXPECTED_EMBEDDING_DIMENSION
         FakeInferenceClient.error = None
         FakeInferenceClient.calls = []
+        FakeInferenceClient.instances = []
 
     def _embeddings(self) -> HuggingFaceAPIEmbeddings:
         return HuggingFaceAPIEmbeddings(
@@ -37,6 +40,12 @@ class RemoteEmbeddingTests(unittest.TestCase):
         vector = self._embeddings().embed_query("medical query")
 
         self.assertEqual(len(vector), EXPECTED_EMBEDDING_DIMENSION)
+        self.assertEqual(
+            FakeInferenceClient.instances[0].kwargs["model"],
+            "sentence-transformers/all-MiniLM-L6-v2",
+        )
+        self.assertEqual(FakeInferenceClient.instances[0].kwargs["provider"], "hf-inference")
+        self.assertEqual(FakeInferenceClient.instances[0].kwargs["token"], "hf_test_secret")
         self.assertEqual(
             FakeInferenceClient.calls[0]["model"],
             "sentence-transformers/all-MiniLM-L6-v2",
