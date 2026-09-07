@@ -2330,3 +2330,92 @@ Completion timestamp: 2026-09-07 11:58:52 +06
 ## Next Expected Phase
 
 - Phase 17, only when explicitly requested.
+
+---
+
+## Phase 17 - Documentation
+
+Status: PASS
+Completion timestamp: 2026-09-07 12:09:41 +06
+
+## Scope
+
+- Re-inspected repository files, `BUILD_STATE.md`, runtime entry points, indexing commands, configuration, helper constants, and test configuration before editing.
+- Replaced the placeholder `README.md` with documentation based only on verified project behavior.
+- Documented the required architecture path: PDF loader, 500/20 chunking, local `all-MiniLM-L6-v2` embeddings, Pinecone, top-3 retriever, OpenRouter, and Flask UI.
+- Documented macOS/zsh environment setup for the detected machine.
+- Documented `.env` creation, required environment variables, PDF placement, Pinecone index checks, indexing, Flask startup, offline tests, opt-in integration tests, troubleshooting, security, medical-use disclaimer, cost notes, and why `ChatOpenRouter` is used instead of `ChatOpenAI`.
+- Did not change application source code.
+- Did not print `.env` values.
+- Did not call Pinecone or OpenRouter.
+
+## Verified Facts
+
+- Detected OS: macOS 26.6.2.
+- CPU architecture: arm64.
+- Shell: zsh.
+- Project Python: `.venv/bin/python`, Python 3.10.21.
+- Existing `.env`: present, values not printed.
+- Existing `BUILD_STATE.md`: present.
+- Real PDF in `data/`: `data/Medical_book.pdf`.
+- Pinecone index behavior documented from `store_index.py`, `src/indexing.py`, and `src/pinecone_index.py`.
+- Chunking constants documented from `src/helper.py`: chunk size 500, overlap 20, expected embedding dimension 384.
+- Retriever setting documented from `src/rag.py`: top 3 documents.
+- OpenRouter client documented from `src/rag.py`: `ChatOpenRouter`, no `ChatOpenAI`.
+- Offline pytest configuration documented from `pytest.ini`: integration marker exists and default tests skip external service calls.
+
+## Files Changed In Phase 17
+
+- `README.md`
+- `BUILD_STATE.md`
+
+## Commands Run In Phase 17
+
+- `pwd && rg --files --hidden -g '!.git/**' -g '!.venv/**' | sort`
+- `tail -n 220 BUILD_STATE.md`
+- `sed -n '1,260p' README.md`
+- `sed -n '1,260p' store_index.py`
+- `sed -n '1,260p' requirements.txt`
+- `sed -n '1,220p' .env.example`
+- `sw_vers; uname -m; .venv/bin/python --version`
+- `rg -n 'CHUNK_SIZE|CHUNK_OVERLAP|EXPECTED_EMBEDDING_DIMENSION|HUGGINGFACE_EMBEDDING_MODEL|PINECONE_INDEX_DIMENSION|PINECONE_INDEX_METRIC|RETRIEVER_SEARCH_KWARGS|MAX_CONTEXT_CHARS|OPENROUTER|FLASK_HOST|FLASK_PORT' src`
+- `sed -n '1,180p' src/helper.py`
+- `sed -n '1,220p' src/config.py`
+- `sed -n '1,260p' store_index.py`
+- `sed -n '1,260p' src/indexing.py`
+- `sed -n '1,220p' .gitignore; sed -n '1,120p' pytest.ini`
+- `find . -maxdepth 3 -not -path './.git/*' -not -path './.venv/*' -not -path './__pycache__/*' -not -path './.pytest_cache/*' | sort`
+- `sed -n '1,260p' app.py`
+- `sed -n '1,220p' src/rag.py`
+- `tail -n 180 BUILD_STATE.md`
+- `git status --short`
+- `sed -n '1,160p' src/prompt.py`
+- `sed -n '1,280p' README.md`
+- `rg -n 'Project Overview|Architecture Diagram|Folder Structure|Prerequisites|Python Environment Setup|Install Commands|Create `.env`|Required Environment Variables|Place The Medical PDF|Check Or Create The Pinecone Index|Run Indexing|Run The Flask App|Local URL|Run Offline Tests|Run Opt-In Integration Tests|Troubleshooting|Security|Medical-Use Disclaimer|Cost Note|Why ChatOpenRouter' README.md`
+- `git diff --check`
+- `.venv/bin/pytest -q`
+- `test -f .env && printf '.env exists\n' || printf '.env missing\n'; test -f BUILD_STATE.md && printf 'BUILD_STATE.md exists\n' || printf 'BUILD_STATE.md missing\n'`
+- `rg -n --hidden --glob '!.git/**' --glob '!.venv/**' --glob '!.env' --glob '!requirements.lock.txt' --glob '!BUILD_STATE.md' '(sk-or-v1-[A-Za-z0-9_-]+|sk-[A-Za-z0-9_-]{20,}|[A-Za-z0-9_]{20,}\.[A-Za-z0-9_=-]{20,}\.[A-Za-z0-9_=-]{20,})' .`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+- `git status --short --untracked-files=all`
+
+## Tests and Acceptance Checks
+
+- Existing repository, `BUILD_STATE.md`, and files inspected first: pass.
+- Work limited to Phase 17 documentation: pass.
+- README includes all requested sections: pass.
+- README documents `ChatOpenRouter` instead of `ChatOpenAI`: pass.
+- README does not claim the app is production-ready: pass.
+- `.env` exists and values were not printed: pass.
+- Secret-shaped value scan outside `.git`, `.venv`, `.env`, `requirements.lock.txt`, and `BUILD_STATE.md`: pass, no matches.
+- `git diff --check`: pass.
+- Default `pytest -q`: pass, 63 passed, 3 skipped, 1 warning, 15 subtests passed.
+
+## Unresolved Issues
+
+- Default pytest still emits the existing `langchain-community` deprecation warning from the PDF loader import.
+- Legal provenance of `data/Medical_book.pdf` remains the user's responsibility.
+
+## Next Expected Phase
+
+- Phase 18, only when explicitly requested.
