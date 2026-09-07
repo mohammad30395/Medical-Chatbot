@@ -84,6 +84,8 @@ def _llm_error_message(exc: LLMError) -> str:
         return "The configured language model is currently unavailable."
     if "timeout" in message or "network" in message or "connection" in message:
         return "The language model request timed out or the network is unavailable."
+    if "empty response" in message or "no answer text" in message:
+        return "The language model returned an empty response. Try again later or choose another OpenRouter model."
     return "The language model request failed."
 
 

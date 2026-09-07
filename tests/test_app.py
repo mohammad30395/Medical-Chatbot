@@ -109,6 +109,20 @@ class FlaskBackendTests(unittest.TestCase):
         self.assertIn("rate limits", response.get_json()["error"])
         mock_answer_question.assert_called_once_with("hello")
 
+    @patch(
+        "app.answer_question",
+        side_effect=LLMError("RAG chain returned no answer text."),
+    )
+    def test_post_get_llm_empty_answer_returns_clear_503(
+        self,
+        mock_answer_question,
+    ) -> None:
+        response = self.client.post("/get", json={"message": "hello"})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("empty response", response.get_json()["error"])
+        mock_answer_question.assert_called_once_with("hello")
+
     @patch("app.answer_question", side_effect=PineconeIndexError("Pinecone unavailable"))
     def test_post_get_pinecone_failure_returns_503(self, mock_answer_question) -> None:
         response = self.client.post("/get", json={"message": "hello"})

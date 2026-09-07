@@ -3844,3 +3844,197 @@ Completion timestamp: 2026-09-07 18:27:11 +06
 ## Next Expected Phase
 
 - After redeploying this local fix and correcting any model/provider value mixup, resume with one deployed `/health` check and at most one deployed `/get` request.
+
+---
+
+## Deployment Phase 23 Retry 3 - Post-Redeploy Strategy B Health Check
+
+Status: BLOCKED
+Completion timestamp: 2026-09-07 18:32:50 +06
+
+## Scope
+
+- Resumed after the user reported the latest Vercel redeploy was done.
+- Verified the production alias points to a newer Ready deployment.
+- Checked Vercel production environment variable names without printing values.
+- Ran `/health` only.
+- Did not run deployed `/get` because `/health` reported invalid runtime configuration.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not call OpenRouter.
+- Did not call Pinecone.
+- Did not call Hugging Face hosted inference.
+- Did not stage or commit files.
+
+## Deployment Findings
+
+- Production alias: `https://medical-chatbot-nine-topaz.vercel.app`
+- Direct deployment URL after latest redeploy: `https://medical-chatbot-nr6qhci4x.vercel.app`
+- Deployment status: Ready.
+- Vercel build output reports Python function size: 50.45 MB.
+- Vercel production contains the Strategy B variable names:
+  - `EMBEDDINGS_PROVIDER`
+  - `HF_TOKEN`
+  - `HUGGINGFACE_EMBEDDING_MODEL`
+  - `HUGGINGFACE_TIMEOUT_SECONDS`
+
+## Deployed Smoke Result
+
+- `GET /health`: HTTP 200, valid JSON, no secret-looking values exposed.
+- `/health` reported `runtime_configuration_present=false`.
+- `/health` reported configuration error: `Invalid HUGGINGFACE_EMBEDDING_MODEL value. Set HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2 and HUGGINGFACE_INFERENCE_PROVIDER=hf-inference.`
+- Deployed `/get` was intentionally not called because runtime configuration is known invalid.
+
+## Files Changed In Deployment Phase 23 Retry 3
+
+- `BUILD_STATE.md`
+
+## Commands Run In Deployment Phase 23 Retry 3
+
+- `git status --short --untracked-files=all`
+- `tail -n 180 BUILD_STATE.md`
+- `vercel inspect medical-chatbot-nine-topaz.vercel.app --no-color`
+- `vercel env ls production --project medical-chatbot --no-color`
+- `curl -sS -D /tmp/medical_chatbot_vercel_health3_headers.txt -o /tmp/medical_chatbot_vercel_health3.json https://medical-chatbot-nine-topaz.vercel.app/health`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m pip check`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 89 passed, 3 skipped, 16 subtests passed.
+- `pip check`: pass, no broken requirements.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- Vercel `HUGGINGFACE_EMBEDDING_MODEL` is set incorrectly. It appears to be set to the provider name `hf-inference`; it must be the embedding model ID `sentence-transformers/all-MiniLM-L6-v2`.
+- Vercel encrypted environment values cannot be printed or verified directly by this audit, but the deployed app's own safe validation confirms the value is invalid.
+
+## Vercel Action Required
+
+- In Vercel project `medical-chatbot`, edit the Production environment variable:
+  - `HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`
+- Optionally add or correct:
+  - `HUGGINGFACE_INFERENCE_PROVIDER=hf-inference`
+- Keep:
+  - `EMBEDDINGS_PROVIDER=huggingface_api`
+  - `HF_TOKEN=<your valid Hugging Face token>`
+- Redeploy production after changing the environment variable.
+
+## Next Expected Phase
+
+- After correcting `HUGGINGFACE_EMBEDDING_MODEL` and redeploying, resume with one deployed `/health` check and at most one deployed `/get` request.
+
+---
+
+## Deployment Phase 23 Retry 4 - Strategy B Chat Smoke After Config Fix
+
+Status: BLOCKED
+Completion timestamp: 2026-09-07 19:05:23 +06
+
+## Scope
+
+- Resumed after the user reported `HUGGINGFACE_EMBEDDING_MODEL` was corrected and production redeployed.
+- Verified the production alias points to a newer Ready deployment.
+- Checked `/health` first.
+- Made exactly one deployed `/get` request.
+- Did not run `store_index.py`.
+- Did not rebuild embeddings.
+- Did not upload or inspect PDF content.
+- Did not recreate, delete, or mutate the Pinecone index.
+- Did not make repeated OpenRouter requests.
+- Did not print API key values.
+- Did not stage or commit files.
+
+## Deployment Findings
+
+- Production alias: `https://medical-chatbot-nine-topaz.vercel.app`
+- Direct deployment URL after latest redeploy: `https://medical-chatbot-cs1cfdxx6.vercel.app`
+- Deployment status: Ready.
+- Vercel build output reports Python function size: 50.45 MB.
+- Vercel production now contains `HUGGINGFACE_INFERENCE_PROVIDER`.
+- Deployed `/health` returned HTTP 200 and `runtime_configuration_present=true`.
+
+## Deployed Smoke Result
+
+- `POST /get` returned HTTP 503 with sanitized JSON error: `The language model request failed.`
+- Vercel logs showed:
+  - Hugging Face hosted embedding request returned HTTP 200.
+  - OpenRouter chat completion request returned HTTP 200.
+- Since both upstream services returned HTTP 200, the remaining failure is in the answer extraction/empty-answer path after OpenRouter responds.
+- A previous production request in Vercel logs returned HTTP 200 after the same Hugging Face and OpenRouter endpoints returned HTTP 200, so the current failure appears consistent with free-model variability or empty model output rather than a permanent connectivity/configuration failure.
+
+## Local Fix Implemented
+
+- Increased `LLM_MAX_TOKENS` from 48 to 192 to give `openrouter/free` routed models enough room to produce visible answer text.
+- Added a clearer user-facing Flask error message when the RAG chain gets an empty/no-answer LLM response.
+- Kept retry count at zero and did not add any automatic retry loop.
+- Did not hard-code a specific OpenRouter model.
+
+## Files Changed In Deployment Phase 23 Retry 4
+
+- `BUILD_STATE.md`
+- `app.py`
+- `src/rag.py`
+- `tests/test_app.py`
+
+## Commands Run In Deployment Phase 23 Retry 4
+
+- `git status --short --untracked-files=all`
+- `tail -n 160 BUILD_STATE.md`
+- `vercel inspect medical-chatbot-nine-topaz.vercel.app --no-color`
+- `vercel env ls production --project medical-chatbot --no-color`
+- `curl -sS -D /tmp/medical_chatbot_vercel_health4_headers.txt -o /tmp/medical_chatbot_vercel_health4.json https://medical-chatbot-nine-topaz.vercel.app/health`
+- `curl -sS -D /tmp/medical_chatbot_vercel_get4_headers.txt -o /tmp/medical_chatbot_vercel_get4.json -X POST https://medical-chatbot-nine-topaz.vercel.app/get -H 'Content-Type: application/json' --data '{"message":"What are common symptoms of dengue?"}'`
+- `vercel logs medical-chatbot-nine-topaz.vercel.app --since 15m --no-color`
+- `sed -n '1,260p' src/rag.py && sed -n '1,220p' tests/test_rag.py`
+- `sed -n '240,420p' src/rag.py && sed -n '1,220p' src/prompt.py`
+- `sed -n '1,220p' tests/test_integration.py`
+- `.venv/bin/pytest -q tests/test_app.py tests/test_rag.py`
+- `.venv/bin/python -m compileall app.py api src tests scripts store_index.py template.py`
+- `.venv/bin/pytest -q`
+- `.venv/bin/python -m pip check`
+- `VERCEL=1 EMBEDDINGS_PROVIDER=huggingface_api PINECONE_API_KEY=placeholder-pinecone OPENROUTER_API_KEY=placeholder-openrouter HF_TOKEN=placeholder-hf .venv/bin/python - <<'PY' ... api.index import and route check ... PY`
+- `git diff --check`
+- `.venv/bin/python - <<'PY' ... secret-shaped scan excluding .env and PDFs ... PY`
+- `find . -path './.venv' -prune -o -path './.git' -prune -o -depth \( -type f -name '*.pyc' -o -type d -name '__pycache__' -o -type d -name '.pytest_cache' \) -exec rm -rf {} +`
+- `date '+%Y-%m-%d %H:%M:%S %Z'`
+
+## Tests And Verification
+
+- Focused tests: pass, 40 passed, 1 skipped, 4 subtests passed.
+- `python -m compileall`: pass.
+- Full default offline `pytest -q`: pass, 90 passed, 3 skipped, 16 subtests passed.
+- `pip check`: pass, no broken requirements.
+- Vercel-style `api.index` import and route check: pass, `/` and `/health` returned 200 with placeholder values not exposed.
+- `git diff --check`: pass.
+- Refined secret-shaped scan: pass.
+- Cache cleanup outside `.venv`: pass.
+
+## Blockers
+
+- The deployed production app still uses the previous `LLM_MAX_TOKENS=48` code until these local changes are redeployed.
+- `openrouter/free` may route to models that produce empty output or behave inconsistently. The code now allows more output tokens, but if the issue continues after redeploy, choose a currently available specific free OpenRouter model in the Vercel `OPENROUTER_MODEL` variable instead of relying on `openrouter/free`.
+
+## Vercel Action Required
+
+- Redeploy the project so Vercel runs the updated `src/rag.py`, `app.py`, and `tests/test_app.py` changes.
+- Keep these server-side env values:
+  - `EMBEDDINGS_PROVIDER=huggingface_api`
+  - `HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`
+  - `HUGGINGFACE_INFERENCE_PROVIDER=hf-inference`
+  - `HF_TOKEN=<your valid Hugging Face token>`
+
+## Next Expected Phase
+
+- After redeploying this token-limit/error-message fix, resume with one deployed `/health` check and at most one deployed `/get` request.
