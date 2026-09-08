@@ -329,4 +329,4 @@ This app provides educational information grounded in uploaded source documents.
 
 ## License
 
-See p[LICENSE](LICENSE) for license information.
+See [LICENSE](LICENSE) for license information.
