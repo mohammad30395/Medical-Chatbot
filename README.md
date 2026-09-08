@@ -1,278 +1,332 @@
 # Medical Knowledge Assistant
 
-## Project Overview
+A Flask-based medical knowledge chatbot that answers questions from uploaded PDF source material using retrieval augmented generation (RAG).
 
-This is a local Flask medical-information chatbot that answers questions using retrieval augmented generation over PDF content placed in `data/`. It is an educational project, not a clinical tool.
+This project is built for educational and portfolio use. It is not a clinical tool, does not provide medical diagnosis, and should not be used as a replacement for professional medical advice.
 
-The app loads legally obtained medical PDFs, splits them into small chunks, embeds those chunks locally with `sentence-transformers/all-MiniLM-L6-v2`, stores vectors in Pinecone, retrieves the top 3 matching chunks, and sends only those retrieved chunks to an OpenRouter chat model.
+## What This App Does
 
-For Vercel deployment, local PDF indexing still happens before deployment. The deployed app queries the already-indexed Pinecone namespace and uses hosted Hugging Face feature extraction for query embeddings so Vercel does not need to install or download the local `torch`/`sentence-transformers` model stack.
+- Loads one or more medical PDF files from `data/`
+- Splits PDF pages into retrieval-friendly text chunks
+- Creates local embeddings with `sentence-transformers/all-MiniLM-L6-v2`
+- Stores vectors in a Pinecone index
+- Retrieves the most relevant source chunks for each user question
+- Sends the retrieved context to an OpenRouter chat model
+- Serves a simple Flask chat interface in the browser
 
-## Architecture Diagram
+## Tech Stack
+
+| Area | Technology |
+| --- | --- |
+| Backend | Flask |
+| RAG orchestration | LangChain |
+| PDF loading | PyPDF / LangChain document loaders |
+| Embeddings | Hugging Face sentence transformers |
+| Vector database | Pinecone |
+| LLM provider | OpenRouter |
+| Testing | Pytest |
+| Deployment target | Vercel |
+
+## How It Works
 
 ```text
-PDF -> loader -> 500/20 chunks -> all-MiniLM-L6-v2 -> Pinecone -> top-3 retriever -> OpenRouter -> Flask UI
+Medical PDFs
+    -> PDF loader
+    -> text splitter
+    -> local embedding model
+    -> Pinecone vector index
+    -> similarity retrieval
+    -> OpenRouter chat model
+    -> Flask chat UI
 ```
 
-## Folder Structure
+The local indexing flow uses `sentence-transformers/all-MiniLM-L6-v2`, which produces `384`-dimension embeddings. The Pinecone index must therefore use:
+
+- dimension: `384`
+- metric: `cosine`
+- vector type: dense
+
+## Project Structure
 
 ```text
 .
-├── app.py
-├── store_index.py
-├── template.py
-├── setup.py
-├── requirements.txt
-├── requirements-vercel.txt
-├── requirements.lock.txt
-├── vercel.json
-├── pytest.ini
-├── BUILD_STATE.md
-├── README.md
-├── data/
-│   ├── .gitkeep
-│   └── Medical_book.pdf
-├── research/
-│   └── trials.ipynb
-├── scripts/
-│   ├── check_env.py
-│   └── smoke_test.py
-├── src/
-│   ├── __init__.py
-│   ├── config.py
-│   ├── helper.py
-│   ├── indexing.py
-│   ├── pinecone_index.py
-│   ├── prompt.py
-│   ├── remote_embeddings.py
-│   └── rag.py
-├── public/
-│   └── static/
-│       └── style.css
-├── static/
-│   └── style.css
-├── templates/
-│   └── chat.html
-└── tests/
+|-- app.py                    # Flask application entrypoint
+|-- store_index.py            # Pinecone index check and PDF ingestion commands
+|-- requirements.txt          # Local development dependencies
+|-- requirements-vercel.txt   # Smaller Vercel deployment dependencies
+|-- requirements.lock.txt     # Verified dependency lock snapshot
+|-- setup.py                  # Editable package metadata
+|-- vercel.json               # Vercel configuration
+|-- api/
+|   `-- index.py              # Vercel serverless entrypoint
+|-- data/
+|   `-- .gitkeep              # Put local PDF files here
+|-- scripts/
+|   |-- check_env.py          # Local setup checker
+|   `-- smoke_test.py         # Runtime smoke checks
+|-- src/
+|   |-- config.py             # Environment loading and validation
+|   |-- helper.py             # PDF loading, splitting, and embeddings
+|   |-- indexing.py           # Document ingestion pipeline
+|   |-- pinecone_index.py     # Pinecone index management
+|   |-- prompt.py             # Medical QA prompt
+|   |-- rag.py                # Retrieval and answer generation
+|   `-- remote_embeddings.py  # Hosted Hugging Face embeddings for deployment
+|-- static/
+|   `-- style.css             # Local Flask CSS
+|-- public/
+|   `-- static/style.css      # Static assets for Vercel
+|-- templates/
+|   `-- chat.html             # Chat interface
+`-- tests/                    # Unit and integration tests
 ```
 
-## Prerequisites
+## Requirements
 
-- Detected OS: macOS 26.6.2 on arm64.
-- Shell: zsh.
-- Python: project virtual environment uses Python 3.10.21.
-- A Pinecone account and `PINECONE_API_KEY`.
-- An OpenRouter account and `OPENROUTER_API_KEY`.
-- At least one legally obtained medical PDF in `data/`.
-- Internet access for Pinecone, OpenRouter, dependency installation, and the first local sentence-transformer model download.
-- Local disk space for the Python environment and the cached embedding model.
+Before running the app, make sure you have:
 
-## Python Environment Setup For macOS
+- Python `3.10` to `3.12`
+- A Pinecone account and API key
+- An OpenRouter account and API key
+- At least one legally obtained medical PDF
+- Internet access for dependency installation, Pinecone, OpenRouter, and the first embedding model download
 
-Use the existing `.venv` if it is already present:
+The project metadata in `setup.py` declares `python_requires=">=3.10,<3.13"`.
 
-```bash
-source .venv/bin/activate
-python --version
-```
+## Environment Variables
 
-To recreate the environment on macOS with Python 3.10:
-
-```bash
-python3.10 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-```
-
-If `python3.10` is not installed, install Python 3.10 first or create the environment with another compatible Python only after confirming package compatibility.
-
-## Install Commands
-
-```bash
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m pip install -e .
-```
-
-`requirements.lock.txt` records the exact versions installed in the verified local environment.
-
-## Convenience Commands
-
-Verify local files, expected environment variable names, Python version, and PDF presence without printing secret values:
-
-```bash
-python scripts/check_env.py
-```
-
-Optionally include a Pinecone index check:
-
-```bash
-python scripts/check_env.py --check-pinecone
-```
-
-Other common local commands:
-
-```bash
-python store_index.py --check-index
-python store_index.py --ingest
-python app.py
-pytest -q
-```
-
-## Create `.env`
-
-Create `.env` from the example file:
+Create a local `.env` file from the example:
 
 ```bash
 cp .env.example .env
 ```
 
-Then fill in only your own secret values. Do not commit `.env`.
+Then fill in your own values.
 
-## Required Environment Variables
+```env
+PINECONE_API_KEY=
+PINECONE_INDEX_NAME=medical-bot
+PINECONE_CLOUD=aws
+PINECONE_REGION=us-east-1
+PINECONE_NAMESPACE=medical-chatbot-v1
 
-| Variable | Purpose | Default or required value |
-| --- | --- | --- |
-| `PINECONE_API_KEY` | Pinecone authentication | Required secret |
-| `PINECONE_INDEX_NAME` | Pinecone index name | `medical-bot` |
-| `PINECONE_CLOUD` | Pinecone serverless cloud | `aws` |
-| `PINECONE_REGION` | Pinecone serverless region | `us-east-1` |
-| `PINECONE_NAMESPACE` | Namespace for this project's vectors | `medical-chatbot-v1` |
-| `OPENROUTER_API_KEY` | OpenRouter authentication | Required secret |
-| `OPENROUTER_MODEL` | OpenRouter model selector | `openrouter/free` |
-| `FLASK_HOST` | Flask bind host | `127.0.0.1` |
-| `FLASK_PORT` | Flask port | `8080` |
-| `FLASK_DEBUG` | Flask debug mode | `false` |
-| `DATA_DIR` | PDF input directory | `data` |
-| `EMBEDDINGS_PROVIDER` | Query embedding provider | `local`; use `huggingface_api` on Vercel |
-| `HF_TOKEN` | Hugging Face hosted inference token | Required only when `EMBEDDINGS_PROVIDER=huggingface_api` |
-| `HUGGINGFACE_EMBEDDING_MODEL` | Hosted query embedding model | `sentence-transformers/all-MiniLM-L6-v2` |
-| `HUGGINGFACE_INFERENCE_PROVIDER` | Hugging Face inference provider | `hf-inference` |
-| `HUGGINGFACE_TIMEOUT_SECONDS` | Hosted embedding timeout | `15` |
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=openrouter/free
 
-## Place The Medical PDF
+FLASK_HOST=127.0.0.1
+FLASK_PORT=8080
+FLASK_DEBUG=false
+DATA_DIR=data
 
-Place one or more legally obtained medical PDFs inside `data/`, for example:
+EMBEDDINGS_PROVIDER=local
+HF_TOKEN=
+HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+HUGGINGFACE_INFERENCE_PROVIDER=hf-inference
+HUGGINGFACE_TIMEOUT_SECONDS=15
+```
+
+### Important Secrets
+
+Never commit `.env`, `.env.local`, API keys, tokens, or private PDFs. They are intentionally ignored by Git.
+
+## Local Setup
+
+Create and activate a virtual environment:
+
+```bash
+python3.10 -m venv .venv
+source .venv/bin/activate
+```
+
+If your machine uses another compatible Python version, use that executable instead:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pip install -e .
+```
+
+## Add Medical PDFs
+
+Place one or more legally obtained medical PDF files inside `data/`.
+
+Example:
 
 ```text
 data/Medical_book.pdf
 ```
 
-The loader searches for `.pdf` files case-insensitively. It raises a clear error if no PDF exists. PDF files under `data/` are ignored by Git through `.gitignore`.
+PDF files are ignored by Git through `.gitignore`, so they will not appear after cloning the repository. Each developer must provide their own local PDF source files.
 
-Do not ask the project to fabricate medical source content. The app should answer only from files that actually exist in `data/`.
+## Check Your Setup
 
-## Check Or Create The Pinecone Index
+Run the setup checker:
 
-Run:
+```bash
+python scripts/check_env.py
+```
+
+To also verify Pinecone connectivity and index configuration:
+
+```bash
+python scripts/check_env.py --check-pinecone
+```
+
+The checker validates required files, `.env` variable names, configured secret presence, Python runtime, and whether PDF files exist in `data/`. It does not print secret values.
+
+## Prepare Pinecone
+
+Check or create the Pinecone index:
 
 ```bash
 python store_index.py --check-index
 ```
 
-This command authenticates with Pinecone, checks whether the configured index exists, creates it if missing, and verifies the index contract:
+This command verifies that the configured index uses the correct vector settings for the local embedding model.
 
-- name from `PINECONE_INDEX_NAME`, normally `medical-bot`
-- dense vectors
-- dimension `384`
-- metric `cosine`
-- serverless cloud and region from `.env`
+## Index The PDFs
 
-If an existing index has the wrong dimension or metric, the command stops instead of deleting it. Safe recovery options are to use a new index name or manually delete and recreate the old index after confirming you no longer need its data.
-
-## Run Indexing
-
-Run:
+After adding PDFs to `data/`, ingest them into Pinecone:
 
 ```bash
 python store_index.py --ingest
 ```
 
-The ingestion command loads PDFs from `data/`, splits documents into 500-character chunks with 20-character overlap, embeds chunks locally, and upserts deterministic vector IDs into the configured Pinecone namespace.
+This command:
 
-To deliberately clear only the configured namespace before ingestion:
+- loads PDF files from `data/`
+- splits pages into `500` character chunks with `20` character overlap
+- embeds chunks locally
+- upserts vectors into the configured Pinecone namespace
+- verifies that similarity search returns indexed content
+
+To rebuild only the configured namespace:
 
 ```bash
 python store_index.py --ingest --rebuild --yes-rebuild-namespace
 ```
 
-## Run The Flask App
+## Run The App
 
-Run:
+Start the Flask development server:
 
 ```bash
 python app.py
 ```
 
-The app reads `FLASK_HOST`, `FLASK_PORT`, and `FLASK_DEBUG` from settings. Heavy RAG components are initialized lazily so importing the app for tests does not call Pinecone or OpenRouter.
-
-## Local URL
-
-The normal local URL is:
+Open the local app:
 
 ```text
 http://127.0.0.1:8080
 ```
 
-## Run Offline Tests
+The host, port, and debug mode are controlled by `FLASK_HOST`, `FLASK_PORT`, and `FLASK_DEBUG` in `.env`.
 
-Run:
+## Health Check
+
+With the app running, visit:
+
+```text
+http://127.0.0.1:8080/health
+```
+
+The health endpoint reports lightweight runtime status without contacting Pinecone or OpenRouter and without exposing secrets.
+
+## Tests
+
+Run the default offline test suite:
 
 ```bash
 pytest -q
 ```
 
-Default tests are unit tests and must not call Pinecone or OpenRouter. In the verified environment, this command passed with skipped integration tests.
-
-## Run Opt-In Integration Tests
-
-Integration tests are marked with `@pytest.mark.integration` and are skipped unless explicitly enabled:
+Integration tests are opt-in because they may call Pinecone and OpenRouter:
 
 ```bash
 RUN_INTEGRATION_TESTS=1 pytest -q -m integration
 ```
 
-Run these only when valid `.env` keys and indexed data are available. These tests can call Pinecone and can make at most one OpenRouter generation request.
+Run integration tests only after `.env` is configured and PDF data has been indexed.
+
+## Vercel Deployment Notes
+
+For Vercel, PDF ingestion still happens locally before deployment. The deployed app queries the already-populated Pinecone namespace.
+
+Vercel uses `requirements-vercel.txt`, which avoids installing the heavier local `torch` and `sentence-transformers` stack. For hosted query embeddings on Vercel, configure:
+
+```env
+EMBEDDINGS_PROVIDER=huggingface_api
+HF_TOKEN=your_hugging_face_token
+```
+
+Also set the required Pinecone and OpenRouter environment variables in the Vercel project settings.
+
+## Common Commands
+
+```bash
+source .venv/bin/activate
+python scripts/check_env.py
+python store_index.py --check-index
+python store_index.py --ingest
+python app.py
+pytest -q
+```
 
 ## Troubleshooting
 
-Missing PDF: place at least one legally obtained `.pdf` file inside `data/`, then rerun indexing.
+### No PDF files found
 
-Pinecone dimension mismatch: the project requires dimension `384` and metric `cosine`. Do not reuse an incompatible index. Use a new index name or manually recreate the index.
+Add at least one `.pdf` file inside `data/`, then rerun:
 
-OpenRouter invalid key: verify `OPENROUTER_API_KEY` in `.env`. Do not paste the key into source code, logs, issues, or browser JavaScript.
+```bash
+python store_index.py --ingest
+```
 
-OpenRouter free rate limit: free models are rate-limited and may reject requests. Wait, choose another available model in `OPENROUTER_MODEL`, or use an account/model with enough quota.
+### Pinecone dimension mismatch
 
-OpenRouter free model unavailable: `openrouter/free` is configurable because the free catalog can change. Set `OPENROUTER_MODEL` to an available OpenRouter model without changing source code.
+This project requires dimension `384` and metric `cosine`. If an existing Pinecone index has different settings, create a new index name or manually recreate the old index after confirming you no longer need its data.
 
-Sentence-transformer first-download delay: the first call to local embeddings may download `sentence-transformers/all-MiniLM-L6-v2` and can take time depending on internet speed and disk performance.
+### OpenRouter authentication failed
 
-Vercel hosted embedding setup: set `EMBEDDINGS_PROVIDER=huggingface_api` and configure `HF_TOKEN` in Vercel project environment variables. Do not expose this token to browser JavaScript.
+Check that `OPENROUTER_API_KEY` is set correctly in `.env`. Do not paste the key into source code, frontend JavaScript, logs, or issue reports.
 
-Vercel dependency size: Vercel installs from `requirements-vercel.txt` through `vercel.json`, avoiding the local `torch` and `sentence-transformers` packages in the deployed runtime.
+### OpenRouter model unavailable or rate-limited
+
+Free OpenRouter models can change or become rate-limited. Update `OPENROUTER_MODEL` in `.env` to a currently available model for your account.
+
+### First embedding run is slow
+
+The first local indexing run may download `sentence-transformers/all-MiniLM-L6-v2`. Later runs should be faster after the model is cached.
+
+## Git-Ignored Local Files
+
+The following files and folders are expected to exist locally but should not be committed:
+
+- `.env`
+- `.env.local`
+- `.venv/`
+- `.vercel/`
+- `data/*.pdf`
+- Python cache folders such as `__pycache__/` and `.pytest_cache/`
 
 ## Security
 
-Never commit `.env`. Commit only `.env.example`.
+- Keep API keys server-side only
+- Never expose secrets in HTML, browser JavaScript, screenshots, commits, or logs
+- Commit `.env.example`, not `.env`
+- Use only legally obtained source PDFs
 
-Never expose API keys in frontend JavaScript or HTML. The browser calls only the Flask backend, and the backend reads secrets from server-side environment variables.
+## Medical Disclaimer
 
-The health endpoint reports whether runtime configuration is present without returning secret values.
+This app provides educational information grounded in uploaded source documents. It does not diagnose, treat, or replace professional medical advice. If a situation may be urgent or life-threatening, contact local emergency services or a qualified medical professional immediately.
 
-## Medical-Use Disclaimer
+## License
 
-Educational information only. Not a substitute for professional medical advice.
-
-If a user describes a possible emergency, the app should give a short urgent-care recommendation instead of trying to manage the emergency through the chatbot.
-
-## Cost Note
-
-This project does not require the paid OpenAI API and does not use `OPENAI_API_KEY`.
-
-Embeddings run locally with `sentence-transformers/all-MiniLM-L6-v2` for local development and indexing. Vercel query embeddings use Hugging Face hosted inference when `EMBEDDINGS_PROVIDER=huggingface_api`. OpenRouter is used for the chat model through `ChatOpenRouter`; free OpenRouter models are rate-limited, not unlimited. Pinecone Starter limits can change, including supported cloud/region options and usage quotas.
-
-## Why ChatOpenRouter Instead Of ChatOpenAI
-
-The project contract uses OpenRouter as the generation provider, so `src/rag.py` imports `ChatOpenRouter` from `langchain_openrouter`. It does not instantiate `ChatOpenAI` and does not read `OPENAI_API_KEY`. Keeping `OPENROUTER_MODEL` configurable lets the app adapt when OpenRouter's free model catalog changes.
-
+See `LICENSE` for license information.
